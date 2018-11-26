@@ -3,23 +3,45 @@ from torch import nn
 import torch
 from modules import modeling
 from modules import extract_features
+from modules.layers import MultiHeadAttention
 
 
 class NerModel(nn.Module):
-    def __init__(self, tagset_size, encoder, embedding_dim=768, use_lstm=True, use_hidden=True,
-                 hidden_dim=128, rnn_layers=1, dropout_ratio=0.4, use_cuda=True):
+    def __init__(self,
+                 tagset_size, encoder, embedding_dim=768, dropout_ratio=0.1,
+                 # For fully-connected layer on the top
+                 use_hidden=True,
+                 # For rnn
+                 use_rnn=True, hidden_dim=128, rnn_layers=1,
+                 use_cuda=True,
+                 # For attention
+                 num_heads=3, dropout_attn=0.1, key_dim=64, val_dim=64, use_attn=False,
+                 bert_mode="last"):
         super(NerModel, self).__init__()
         self.encoder = encoder
+        self.bert_mode = bert_mode
+        if self.bert_mode == "weighted":
+            self.bert_weights = nn.Parameter(torch.FloatTensor(12, 1))
+            self.bert_gamma = nn.Parameter(torch.FloatTensor(1, 1))
+            nn.init.xavier_normal(self.bert_gamma)
+            nn.init.xavier_normal(self.bert_weights)
         self.tagset_size = tagset_size
         self.dropout1 = nn.Dropout(p=dropout_ratio)
-        self.use_lstm = use_lstm
-        if self.use_lstm:
-            self.lstm = nn.LSTM(embedding_dim, hidden_dim // 2,
-                                num_layers=rnn_layers, bidirectional=True, dropout=dropout_ratio)
+        self.use_rnn = use_rnn
+        self.use_attn = use_attn
+        rnn_dim = embedding_dim
+        if self.use_rnn:
+            print("Use rnn of type: {} with n_layers: {}".format("lstm", rnn_layers))
+            self.rnn = nn.LSTM(rnn_dim, hidden_dim // 2, rnn_layers, bidirectional=True)
         else:
             hidden_dim = embedding_dim
-        self.use_hidden = use_hidden
+        if self.use_attn:
+            self.attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, dropout_attn)
+            print("Use MultiHeadAttention layer with num_heads {}".format(num_heads))
+        self.use_hidden = True
+
         if self.use_hidden:
+            print("Use fully-connected layer before crf.")
             self.hidden_layer = nn.Linear(hidden_dim, self.tagset_size)
         self.activation = nn.Tanh()
         self.dropout2 = nn.Dropout(p=dropout_ratio)
@@ -28,40 +50,33 @@ class NerModel(nn.Module):
         if use_cuda:
             self.cuda()
 
-    def forward(self, batch):
-        """
-        args:
-            sentence (batch_size, word_seq_len) : word-level representation of sentence
-            hidden: initial hidden state
-
-        return:
-            crf output (word_seq_len, batch_size, tag_size), hidden
-        """
-        output, input_mask, input_type_ids = batch
-        output = self.get_bert_output(output, input_mask, input_type_ids, self.encoder)
-        output = output.transpose(0, 1)
-        input_mask = input_mask.transpose(0, 1)
+    def get_logits(self, output, input_mask, input_type_ids):
+        output = self.get_bert_output(output, input_mask, input_type_ids)
         output = self.dropout1(output)
-        if self.use_lstm:
-            output, hidden = self.lstm(output)
+        if self.use_rnn:
+            output = output.transpose(0, 1)
+            output, _ = self.rnn(output)
+            output = output.transpose(0, 1)
+        if self.use_attn:
+            output, _ = self.attn(output, output, output, None)
+            # output = torch.cat([output, attn_output], -1)
+        output = output.transpose(0, 1)
         if self.use_hidden:
             output = self.hidden_layer(output)
         output = self.activation(output)
+        return output
+
+    def forward(self, batch):
+        output, input_mask, input_type_ids = batch
+        output = self.get_logits(output, input_mask, input_type_ids)
+        input_mask = input_mask.transpose(0, 1)
         return self.crf.decode(self.dropout2(output), mask=input_mask)
     
     def score(self, batch):
         output, input_mask, input_type_ids, labels_ids = batch
-        output = self.get_bert_output(output, input_mask, input_type_ids, self.encoder)
-        output = output.transpose(0, 1)
+        output = self.get_logits(output, input_mask, input_type_ids)
         input_mask = input_mask.transpose(0, 1)
         labels_ids = labels_ids.transpose(0, 1)
-        output = self.dropout1(output)
-        if self.use_lstm:
-            output, hidden = self.lstm.forward(output)
-        if self.use_hidden:
-            output = self.hidden_layer(output)
-        output = self.activation(output)
-        output = self.dropout2(output)
         # - masked_cross_entropy(output, tags, mask)
         return -self.crf(output, labels_ids, mask=input_mask)
     
@@ -75,6 +90,18 @@ class NerModel(nn.Module):
             for param in self.encoder.parameters():
                 param.requires_grad = True
 
+    def freeze_encoder_to(self, to=-1):
+        if to < 0:
+            to = len(self.encoder.encoder.layer) + to + 1
+        for idx in range(to):
+            for param in self.encoder.encoder.layer[idx].parameters():
+                    param.requires_grad = False
+        print("Encoder freezed to {}".format(to))
+        to = len(self.encoder.encoder.layer)
+        for idx in range(idx, to):
+            for param in self.encoder.encoder.layer[idx].parameters():
+                    param.requires_grad = True
+    
     def get_n_trainable_params(self):
         pp=0
         for p in list(self.parameters()):
@@ -85,14 +112,26 @@ class NerModel(nn.Module):
                 pp += nn
         return pp
 
-    @staticmethod
-    def get_bert_output(input_ids, input_mask, input_type_ids, bert_model, mode="last"):
-        all_encoder_layers, _ = bert_model(input_ids, token_type_ids=input_type_ids, attention_mask=input_mask)
-        if mode == "last":
+    def get_bert_output(self, input_ids, input_mask, input_type_ids):
+        all_encoder_layers, _ = self.encoder(input_ids, token_type_ids=input_type_ids, attention_mask=input_mask)
+        if self.bert_mode == "last":
             return all_encoder_layers[-1]
+        elif self.bert_mode == "weighted":
+            all_encoder_layers = torch.stack([a * b for a, b in zip(all_encoder_layers, self.bert_weights)])
+            return self.bert_gamma * torch.sum(all_encoder_layers, dim=0)
 
     @staticmethod
-    def create(bert_config_file, init_checkpoint_pt, tag_size, use_hidden=True, use_lstm=True, use_cuda=True, freeze_enc=True, hidden_dim=128):
+    def create(
+        bert_config_file, init_checkpoint_pt,
+        tagset_size, embedding_dim=768, dropout_ratio=0.4,
+        use_hidden=True,
+        # For rnn
+        use_rnn=True, hidden_dim=128, rnn_layers=1,
+        use_cuda=True,
+        # For attention
+        num_heads=3, dropout_attn=0.1, key_dim=64, val_dim=64, use_attn=False,
+        freeze_enc=True, bert_mode="last"
+    ):
         bert_config = modeling.BertConfig.from_json_file(bert_config_file)
         bert_model = extract_features.BertModel(bert_config)
         if use_cuda:
@@ -103,7 +142,14 @@ class NerModel(nn.Module):
         if use_cuda:
             device = torch.device("cuda")
         bert_model = bert_model.to(device)
-        model = NerModel(tag_size, encoder=bert_model, use_lstm=use_lstm, use_hidden=use_hidden, use_cuda=use_cuda, hidden_dim=hidden_dim)
+        model = NerModel(
+            tagset_size=tagset_size, encoder=bert_model, embedding_dim=embedding_dim, dropout_ratio=dropout_ratio,
+            use_hidden=use_hidden,
+            use_rnn=use_rnn, hidden_dim=hidden_dim, rnn_layers=rnn_layers,
+            use_cuda=use_cuda,
+            num_heads=num_heads, dropout_attn=dropout_attn, key_dim=key_dim, val_dim=val_dim, use_attn=use_attn,
+            bert_mode=bert_mode
+        )
         if freeze_enc:
             model.freeze_encoder()
             print("freeze_encoder")

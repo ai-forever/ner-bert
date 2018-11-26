@@ -3,8 +3,9 @@ from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
 from modules.plot_metrics import *
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from modules.clr import CyclicLR
 from torch.optim import Adam
+from torch import nn
 
 
 logging.basicConfig(level=logging.INFO)
@@ -22,11 +23,15 @@ def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
         if clip is not None:
             _ = torch.nn.utils.clip_grad_norm(model.parameters(), clip)
         optimizer.step()
+        # optimizer.zero_grad()
         epoch_loss += loss #.data.cpu().tolist()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
     if lr_scheduler is not None:
-        lr_scheduler.step(epoch_loss)
+        logging.info("\nlr after epoch: {}".format(lr_scheduler.lr))
     logging.info("\nepoch {}, average train epoch loss={:.5}\n".format(
         num_epoch, epoch_loss.data.cpu().tolist() / idx))
+
 
 def transformed_result(preds, target_all, mask, id2label, return_target=True):
 
@@ -57,6 +62,7 @@ def transformed_result(preds, target_all, mask, id2label, return_target=True):
         return preds_cpu, targets_cpu
     else:
         return preds_cpu
+
 
 def validate_step(dl, model, id2label, num_epoch=1, ignore_labels=["O", "<pad>"]):
     model.eval()
@@ -90,17 +96,12 @@ def predict(dl, model, id2label):
 
 
 class NerLearner(object):
-    def __init__(self, model, sup_labels, data, best_model_path,
-                 optimizer=Adam, lr=0.01, betas=[0.8, 0.99], clip=0.25,
-                 verbose=True, use_lr_cheduler=False):
-        self.optimizer = Adam(model.parameters(), lr=lr, betas=betas) if optimizer == Adam else optimizer
+    def __init__(self, model, sup_labels, data, best_model_path, base_lr=0.001, lr_max=0.01, betas=[0.8, 0.9], clip=0.25,
+                 verbose=True, use_lr_scheduler=True,
+                ):
         self.model = model
-        if use_lr_cheduler:
-            self.lr_scheduler = ReduceLROnPlateau(self.optimizer, 'min')
-        else:
-            if verbose:
-                logging.info("Don't use lr scheduler...")
-            self.lr_scheduler = None
+        self.base_lr = base_lr
+        self.optimizer = Adam(model.parameters(), lr=base_lr, betas=betas)
         self.sup_labels = sup_labels
         self.data = data
         self.best_model_path = best_model_path
@@ -108,6 +109,14 @@ class NerLearner(object):
         self.history = []
         self.epoch = 0
         self.clip = clip
+        if use_lr_scheduler:
+            if verbose:
+                logging.info("Use lr OneCycleScheduler...")
+            self.lr_scheduler = CyclicLR(self.optimizer, base_lr=base_lr, max_lr=lr_max, step_size=4 * len(data.train_dl))
+        else:
+            if verbose:
+                logging.info("Don't use lr scheduler...")
+            self.lr_scheduler = None
 
     def fit(self, epochs=100, resume_history=True, target_metric="f1"):
         if not resume_history:
@@ -124,11 +133,11 @@ class NerLearner(object):
             pass
 
     def fit_one_cycle(self, epoch, resume_history=True, target_metric="f1"):
-        train_step(self.data.dl_train, self.model, self.optimizer, self.lr_scheduler, self.clip, epoch)
+        train_step(self.data.train_dl, self.model, self.optimizer, self.lr_scheduler, self.clip, epoch)
         prev_best = 0.
         if len(self.history):
             prev_best = get_mean_max_metric(self.history, self.sup_labels, target_metric)
-        self.history.append(validate_step(self.data.dl_valid, self.model, self.data.id2label, epoch))
+        self.history.append(validate_step(self.data.valid_dl, self.model, self.data.id2label, epoch))
         idx, metric = get_mean_max_metric(self.history, self.sup_labels, target_metric, True)
         if self.verbose:
             logging.info("on epoch {} by max_{}: {}".format(idx, target_metric, metric))

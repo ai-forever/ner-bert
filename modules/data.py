@@ -135,10 +135,10 @@ def get_data_loaders(train, valid, vocab_file, label2idx=label2idx, batch_size=1
 
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=True)
     train_f, train_orig_to_tok_map, label2idx = get_bert_data(train, tokenizer, label2idx)
-    dl_train = DataLoaderHelper(train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
+    train_dl = DataLoaderHelper(train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
     valid_f, valid_orig_to_tok_map, label2idx = get_bert_data(valid, tokenizer, label2idx)
-    dl_valid = DataLoaderHelper(valid_f, batch_size=batch_size, cuda=cuda)
-    return dl_train, train_orig_to_tok_map, dl_valid, valid_orig_to_tok_map, tokenizer, label2idx
+    valid_dl = DataLoaderHelper(valid_f, batch_size=batch_size, cuda=cuda)
+    return train_dl, train_orig_to_tok_map, valid_dl, valid_orig_to_tok_map, tokenizer, label2idx
 
 
 def get_data_loader_for_predict(path, learner):
@@ -152,12 +152,12 @@ def get_data_loader_for_predict(path, learner):
 
 class NerData(object):
 
-    def __init__(self, dl_train, train_orig_to_tok_map, dl_valid, valid_orig_to_tok_map,
+    def __init__(self, train_dl, train_orig_to_tok_map, valid_dl, valid_orig_to_tok_map,
                  tokenizer, label2idx=label2idx, batch_size=16, cuda=True):
-        self.dl_train = dl_train
+        self.train_dl = train_dl
         self.train_orig_to_tok_map = train_orig_to_tok_map
         self.valid_orig_to_tok_map = valid_orig_to_tok_map
-        self.dl_valid = dl_valid
+        self.valid_dl = valid_dl
         self.tokenizer = tokenizer
         self.label2idx = label2idx
         self.batch_size = batch_size
