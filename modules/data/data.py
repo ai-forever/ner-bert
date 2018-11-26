@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from modules import tokenization
+from modules.data import tokenization
 import torch
 import pandas as pd
 
@@ -143,7 +143,6 @@ def get_data_loaders(train, valid, vocab_file, label2idx=label2idx, batch_size=1
 
 def get_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
-    tokenizer = learner.data.tokenizer
     f, orig_to_tok_map, _ = get_bert_data(df, learner.data.tokenizer, learner.data.label2idx)
     dl = DataLoaderHelper(f, batch_size=learner.data.batch_size, shuffle=False, cuda=learner.model.use_cuda)
 

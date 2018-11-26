@@ -2,8 +2,8 @@ from tqdm._tqdm_notebook import tqdm_notebook
 from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
-from modules.plot_metrics import *
-from modules.clr import CyclicLR
+from modules.utils.plot_metrics import *
+from modules.train.clr import CyclicLR
 from torch.optim import Adam
 from torch import nn
 

@@ -1,9 +1,7 @@
-from modules.crf import CRF
+from modules.layers.crf import CRF
 from torch import nn
 import torch
-from modules import modeling
-from modules import extract_features
-from modules.layers import MultiHeadAttention
+from modules.layers import MultiHeadAttention, modeling
 
 
 class NerModel(nn.Module):
@@ -20,6 +18,7 @@ class NerModel(nn.Module):
         super(NerModel, self).__init__()
         self.encoder = encoder
         self.bert_mode = bert_mode
+        self.use_hidden = use_hidden
         if self.bert_mode == "weighted":
             self.bert_weights = nn.Parameter(torch.FloatTensor(12, 1))
             self.bert_gamma = nn.Parameter(torch.FloatTensor(1, 1))
@@ -133,7 +132,7 @@ class NerModel(nn.Module):
         freeze_enc=True, bert_mode="last"
     ):
         bert_config = modeling.BertConfig.from_json_file(bert_config_file)
-        bert_model = extract_features.BertModel(bert_config)
+        bert_model = modeling.BertModel(bert_config)
         if use_cuda:
             map_location = "cuda"
         else:
