@@ -209,4 +209,4 @@ class NerData(object):
     def create(train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False):
 
         return NerData(*get_data_loaders(
-            train_path, valid_path, vocab_file, batch_size, cuda, is_cls), batch_size, cuda)
+            train_path, valid_path, vocab_file, batch_size, cuda, is_cls), batch_size=batch_size, cuda=cuda)
