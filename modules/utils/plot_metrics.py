@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from matplotlib import pyplot as plt
-from modules.utils import to_words, tokens2spans
+from .utils import to_words, tokens2spans
 from sklearn_crfsuite.metrics import flat_classification_report
 
 
