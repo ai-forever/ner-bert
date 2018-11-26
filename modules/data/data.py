@@ -75,12 +75,12 @@ class InputFeatures(object):
         self.cls_idx = cls_idx
 
 
-def get_bert_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None):
+def get_bert_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None, is_cls=False):
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2, 'B_O': 3, 'I_O': 4}
     orig_to_tok_map = []
     features = []
-    is_cls = "2" in df.columns
+    # is_cls = "2" in df.columns
     if is_cls:
         # Use joint model
         if cls2idx is None:
@@ -158,13 +158,13 @@ def get_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=
     cls2idx = None
 
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=True)
-    train_f, train_orig_to_tok_map, label2idx = get_bert_data(train, tokenizer)
+    train_f, train_orig_to_tok_map, label2idx = get_bert_data(train, tokenizer, is_cls=is_cls)
     if is_cls:
         label2idx, cls2idx = label2idx
     train_dl = DataLoaderHelper(
         train_f, batch_size=batch_size, shuffle=True, cuda=cuda, is_cls=is_cls)
     valid_f, valid_orig_to_tok_map, label2idx = get_bert_data(
-        valid, tokenizer, label2idx, cls2idx=cls2idx)
+        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls)
     if is_cls:
         label2idx, cls2idx = label2idx
     valid_dl = DataLoaderHelper(
