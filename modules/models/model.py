@@ -57,6 +57,7 @@ class NerModel(nn.Module):
             output, _ = self.attn(output, output, output, None)
             # output = torch.cat([output, attn_output], -1)
         output = output.transpose(0, 1)
+        output = self.dropout2(output)
         return output
 
     def forward(self, batch):
@@ -65,8 +66,8 @@ class NerModel(nn.Module):
         output = self.hidden_layer(output)
         output = self.activation(output)
         input_mask = input_mask.transpose(0, 1)
-        return self.crf.decode(self.dropout2(output), mask=input_mask)
-    
+        return self.crf.decode(output, mask=input_mask)
+
     def score(self, batch):
         output, input_mask, input_type_ids, labels_ids = batch
         output = self.get_logits(output, input_mask, input_type_ids)
