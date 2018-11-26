@@ -1,7 +1,8 @@
 from modules.layers.crf import CRF
 from torch import nn
 import torch
-from modules.layers import MultiHeadAttention, modeling
+from modules.layers.layers import MultiHeadAttention
+from modules.layers import modeling
 
 
 class NerModel(nn.Module):
