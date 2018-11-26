@@ -84,7 +84,4 @@ For more detailed instructions see samples.ipynb
 1. Add tests
 2. Add searcher of best params
 3. Improve model:
-    1. Add RNNCore (AWD-LSTM);
-    2. Improve lr scheduler;
     3. Add pos tags;
-    4. Test on decoder with attention.
