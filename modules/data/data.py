@@ -5,21 +5,9 @@ import torch
 import pandas as pd
 
 
-id2label = ["<pad>", "[CLS]", "[SEP]", 'B_O', 'I_O', 'B_LOC', 'I_LOC', 'B_ORG', 'I_ORG', 'B_PER', 'I_PER']
-label2idx = {l: idx for idx, l in enumerate(id2label)}
-
-
 class BertDataSet(Dataset):
 
     def __init__(self, data):
-        """
-        Создает pytorch data set.
-
-        Parameters
-        -----------
-        transforms : list | Nine
-            Список трансформаций. Не добавлять ToTensor (применяется автоматически).
-        """
         super(Dataset, self).__init__()
         if isinstance(data, list):
             self.data = data
@@ -35,19 +23,21 @@ class BertDataSet(Dataset):
 
 class DataLoaderHelper(DataLoader):
 
-    def __init__(self, data_set, cuda, **kwargs):
+    def __init__(self, data_set, cuda, is_cls=False, **kwargs):
         super(DataLoaderHelper, self).__init__(
             dataset=data_set,
             collate_fn=self.collate_fn,
             **kwargs
         )
         self.cuda = cuda
+        self.is_cls = is_cls
 
     def collate_fn(self, data):
         input_ids = []
         input_mask = []
         input_type_ids = []
         labels_ids = []
+        cls_ids = []
         lens = list(map(lambda x: len(x.tokens), data))
         max_len = max(lens)
         for f in data:
@@ -55,21 +45,24 @@ class DataLoaderHelper(DataLoader):
             input_mask.append(f.input_mask[:max_len])
             input_type_ids.append(f.input_type_ids[:max_len])
             labels_ids.append(f.labels_ids[:max_len])
+            if self.is_cls:
+                cls_ids.append(f.cls_idx)
+        res = [torch.LongTensor(input_ids),
+               torch.LongTensor(input_mask),
+               torch.LongTensor(input_type_ids),
+               torch.LongTensor(labels_ids)]
+        if self.is_cls:
+            res.append(torch.LongTensor(cls_ids))
         if self.cuda:
-            return (torch.LongTensor(input_ids).cuda(),
-                    torch.LongTensor(input_mask).cuda(),
-                    torch.LongTensor(input_type_ids).cuda(),
-                    torch.LongTensor(labels_ids).cuda())
-        return (torch.LongTensor(input_ids),
-                torch.LongTensor(input_mask),
-                torch.LongTensor(input_type_ids),
-                torch.LongTensor(labels_ids))
+            res = [t.cuda() for t in res]
+        return res
 
 
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, unique_id, tokens, input_ids, input_mask, input_type_ids, labels, labels_ids):
+    def __init__(self, unique_id, tokens, input_ids, input_mask, input_type_ids,
+                 labels, labels_ids, cls=None, cls_idx=None):
         self.unique_id = unique_id
         self.tokens = tokens
         self.input_ids = input_ids
@@ -77,12 +70,29 @@ class InputFeatures(object):
         self.input_type_ids = input_type_ids
         self.labels = labels
         self.labels_ids = labels_ids
+        # Used for joint model
+        self.cls = cls
+        self.cls_idx = cls_idx
 
 
-def get_bert_data(df, tokenizer, label2idx, max_seq_len=424, pad="<pad>"):
+def get_bert_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None):
+    if label2idx is None:
+        label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2, 'B_O': 3, 'I_O': 4}
     orig_to_tok_map = []
     features = []
-    for idx, (text, labels) in enumerate(zip(df["1"].tolist(), df["0"].tolist())):
+    is_cls = "2" in df.columns
+    if is_cls:
+        # Use joint model
+        if cls2idx is None:
+            cls2idx = dict()
+        zip_args = zip(df["1"].tolist(), df["0"].tolist(), df["2"].tolist())
+    else:
+        zip_args = zip(df["1"].tolist(), df["0"].tolist())
+    for args in enumerate(zip_args):
+        if is_cls:
+            idx, (text, labels, cls) = args
+        else:
+            idx, (text, labels) = args
         tok_map = []
         bert_tokens = []
         bert_labels = []
@@ -117,6 +127,13 @@ def get_bert_data(df, tokenizer, label2idx, max_seq_len=424, pad="<pad>"):
             bert_labels_ids.append(pad_idx)
         assert len(input_ids) == len(bert_labels_ids)
         input_type_ids = [0] * len(input_ids)
+        # For joint model
+        cls = None
+        cls_idx = None
+        if is_cls:
+            if cls not in cls2idx:
+                cls2idx[cls] = len(cls2idx)
+            cls_idx = cls2idx[cls]
         features.append(InputFeatures(
             unique_id=idx, 
             tokens=bert_tokens,
@@ -124,27 +141,47 @@ def get_bert_data(df, tokenizer, label2idx, max_seq_len=424, pad="<pad>"):
             input_mask=input_mask,
             input_type_ids=input_type_ids,
             labels=bert_labels,
-            labels_ids=bert_labels_ids))
+            labels_ids=bert_labels_ids,
+            cls=cls,
+            cls_idx=cls_idx
+        ))
         orig_to_tok_map.append(tok_map)
+    if is_cls:
+        return features, orig_to_tok_map, (label2idx, cls2idx)
     return features, orig_to_tok_map, label2idx
 
 
-def get_data_loaders(train, valid, vocab_file, label2idx=label2idx, batch_size=16, cuda=True):
+def get_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False):
     train = pd.read_csv(train)
     valid = pd.read_csv(valid)
 
+    cls2idx = None
+
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=True)
-    train_f, train_orig_to_tok_map, label2idx = get_bert_data(train, tokenizer, label2idx)
-    train_dl = DataLoaderHelper(train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
-    valid_f, valid_orig_to_tok_map, label2idx = get_bert_data(valid, tokenizer, label2idx)
-    valid_dl = DataLoaderHelper(valid_f, batch_size=batch_size, cuda=cuda)
+    train_f, train_orig_to_tok_map, label2idx = get_bert_data(train, tokenizer)
+    if is_cls:
+        label2idx, cls2idx = label2idx
+    train_dl = DataLoaderHelper(
+        train_f, batch_size=batch_size, shuffle=True, cuda=cuda, is_cls=is_cls)
+    valid_f, valid_orig_to_tok_map, label2idx = get_bert_data(
+        valid, tokenizer, label2idx, cls2idx=cls2idx)
+    if is_cls:
+        label2idx, cls2idx = label2idx
+    valid_dl = DataLoaderHelper(
+        valid_f, batch_size=batch_size, cuda=cuda, is_cls=is_cls)
+    if is_cls:
+        return train_dl, train_orig_to_tok_map, valid_dl,\
+               valid_orig_to_tok_map, tokenizer, label2idx, cls2idx
     return train_dl, train_orig_to_tok_map, valid_dl, valid_orig_to_tok_map, tokenizer, label2idx
 
 
 def get_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
-    f, orig_to_tok_map, _ = get_bert_data(df, learner.data.tokenizer, learner.data.label2idx)
-    dl = DataLoaderHelper(f, batch_size=learner.data.batch_size, shuffle=False, cuda=learner.model.use_cuda)
+    f, orig_to_tok_map, _ = get_bert_data(
+        df, learner.data.tokenizer, learner.data.label2idx, cls2idx=learner.data.cls2idx)
+    dl = DataLoaderHelper(
+        f, batch_size=learner.data.batch_size, shuffle=False,
+        cuda=learner.model.use_cuda, is_cls=learner.data.is_cls)
 
     return dl, orig_to_tok_map
 
@@ -152,18 +189,24 @@ def get_data_loader_for_predict(path, learner):
 class NerData(object):
 
     def __init__(self, train_dl, train_orig_to_tok_map, valid_dl, valid_orig_to_tok_map,
-                 tokenizer, label2idx=label2idx, batch_size=16, cuda=True):
+                 tokenizer, label2idx, cls2idx=None, batch_size=16, cuda=True):
         self.train_dl = train_dl
         self.train_orig_to_tok_map = train_orig_to_tok_map
         self.valid_orig_to_tok_map = valid_orig_to_tok_map
         self.valid_dl = valid_dl
         self.tokenizer = tokenizer
         self.label2idx = label2idx
+        self.cls2idx = cls2idx
         self.batch_size = batch_size
         self.cuda = cuda
         self.id2label = sorted(label2idx.keys(), key=lambda x: label2idx[x])
+        self.is_cls = False
+        if cls2idx is not None:
+            self.is_cls = True
+            self.id2cls = sorted(cls2idx.keys(), key=lambda x: cls2idx[x])
 
     @staticmethod
-    def create(train_path, valid_path, vocab_file, label2idx=label2idx, batch_size=16, cuda=True):
+    def create(train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False):
 
-        return NerData(*get_data_loaders(train_path, valid_path, vocab_file, label2idx), batch_size, cuda)
+        return NerData(*get_data_loaders(
+            train_path, valid_path, vocab_file, batch_size, cuda, is_cls), batch_size, cuda)
