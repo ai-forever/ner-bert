@@ -88,6 +88,7 @@ def get_bert_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", c
         zip_args = zip(df["1"].tolist(), df["0"].tolist(), df["2"].tolist())
     else:
         zip_args = zip(df["1"].tolist(), df["0"].tolist())
+    cls = None
     for args in enumerate(zip_args):
         if is_cls:
             idx, (text, labels, cls) = args
@@ -128,7 +129,6 @@ def get_bert_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", c
         assert len(input_ids) == len(bert_labels_ids)
         input_type_ids = [0] * len(input_ids)
         # For joint model
-        cls = None
         cls_idx = None
         if is_cls:
             if cls not in cls2idx:
