@@ -50,19 +50,20 @@ pip install -r ./requirements.txt
 
 ```from modules.data import NerData```
 
-```data = NerData.create(train_path, valid_path, vocab_file, label2idx)```
+```data = NerData.create(train_path, valid_path, vocab_file)```
 
 ### 2. Create model:
 
-```from modules.model import NerModel```
+```from modules.models import BertBiLSTMCRF```
 
-```model = NerModel.create(bert_config_file, init_checkpoint_pt, len(data.id2label))```
+```model = BertBiLSTMCRF.create(len(data.label2idx), bert_config_file, init_checkpoint_pt, enc_hidden_dim=256)```
 
 ### 3. Create learner:
 
 ```from modules.train import NerLearner```
 
-```learner = NerLearner(model, data.id2label[5:], data, best_model_path="/datadrive/models/factrueval/best_model.cpt")```
+```learner = NerLearner(
+    model, data, best_model_path="/datadrive/models/factrueval/exp_final.cpt", base_lr=0.0001, lr_max=0.005, clip=5.0, use_lr_scheduler=True, sup_labels=data.id2label[5:])```
 
 ### 4. Learn your NER model:
 
@@ -70,9 +71,9 @@ pip install -r ./requirements.txt
 
 ### 5. Predict on new data:
 
-```from modules.data import get_data_loader_for_predict```
+```from modules.data.data import get_bert_data_loader_for_predict```
 
-```dl, orig_to_tok_map = get_data_loader_for_predict(data_path+"valid.csv", learner)```
+```dl = get_bert_data_loader_for_predict(data_path + "valid.csv", learner)```
 
 ```learner.load_model(best_model_path)```
 
@@ -84,4 +85,5 @@ For more detailed instructions see samples.ipynb
 1. Add tests
 2. Add searcher of best params
 3. Improve model:
-    3. Add pos tags;
+    a. Add pos tags;
+    b. Refactor attention model
