@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from matplotlib import pyplot as plt
-from .utils import to_words, tokens2spans
+from .utils import tokens2spans, bert_labels2tokens
 from sklearn_crfsuite.metrics import flat_classification_report
 
 
@@ -43,31 +43,37 @@ def get_by_class_metric(history, metric_, sup_labels):
 def get_max_metric(history, metric_, sup_labels, return_idx=False):
     by_class = get_by_class_metric(history, metric_, sup_labels)
     by_class_arr = np.array(list(by_class.values()))
-    idx = by_class_arr.sum(0).argmax()
+    idx = np.array(by_class_arr.sum(0)).argmax()
     if return_idx:
         return list(zip(by_class.keys(), by_class_arr[:, idx])), idx
     return list(zip(by_class.keys(), by_class_arr[:, idx]))
 
 
-def get_mean_max_metric(history, sup_labels, metric_="f1", return_idx=False):
-    res, idx = get_max_metric(history, metric_, sup_labels, True)
-    res = np.mean([m[1] for m in res])
+def get_mean_max_metric(history, metric_="f1", return_idx=False):
+    m_idx = 0
+    if metric_ == "f1":
+        m_idx = 2
+    elif m_idx == "rec":
+        m_idx = 1
+    metrics = [float(h.split("\n")[-3].split()[2 + m_idx]) for h in history]
+    idx = np.argmax(metrics)
+    res = metrics[idx]
     if return_idx:
         return idx, res
     return res
 
 
-def get_span_report(dl, orig_to_tok_map, preds, ignore_labels=["O"]):
-    tokens, labels = to_words(dl, orig_to_tok_map, preds)
+def get_bert_span_report(dl, preds, ignore_labels=["O"]):
+    tokens, labels = bert_labels2tokens(dl, preds)
     spans_pred = tokens2spans(tokens, labels)
-    tokens, labels = to_words(dl, orig_to_tok_map, [x.labels for x in dl.dataset])
+    tokens, labels = bert_labels2tokens(dl, [x.labels for x in dl.dataset])
     spans_true = tokens2spans(tokens, labels)
     set_labels = set()
     for idx in range(len(spans_pred)):
         while len(spans_pred[idx]) < len(spans_true[idx]):
-            spans_pred[idx].append(("", "ERROR"))
+            spans_pred[idx].append(("", "O"))
         while len(spans_pred[idx]) > len(spans_true[idx]):
-            spans_true[idx].append(("ERROR", "ERROR"))
+            spans_true[idx].append(("O", "O"))
         set_labels.update([y for x, y in spans_true[idx]])
     set_labels -= set(ignore_labels)
     return flat_classification_report([[y[1] for y in x] for x in spans_true], [[y[1] for y in x] for x in spans_pred], labels=list(set_labels), digits=3)

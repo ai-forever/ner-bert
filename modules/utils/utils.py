@@ -1,45 +1,19 @@
 
-def to_words(dl, tok_maps, preds=None):
-    text_tokens = dl.dataset
-    res = []
-    res_preds = []
-    assert len(tok_maps) == len(dl.dataset)
-    for idx, (feature, tok_map) in enumerate(zip(dl.dataset, tok_maps)):
-        map_idx = 0
-        sent = []
-        word = []
-        labels = []
+
+def bert_labels2tokens(dl, labels):
+    res_tokens = []
+    res_labels = []
+    for f, l in zip(dl.dataset, labels):
         label = []
-        for idx_tok, tok in enumerate(feature.tokens[1:-1], 1):
-            if map_idx >= len(tok_map):
-                word.append(tok.replace("#", ""))
-                if preds is not None:
-                    label.append(preds[idx][idx_tok])
-            elif idx_tok != tok_map[map_idx]:
-                word.append(tok.replace("#", ""))
-                if preds is not None:
-                    label.append(preds[idx][idx_tok])
-            elif idx_tok == tok_map[map_idx]:
-                if len(word):
-                    sent.append("".join(word))
-                word = []
-                word.append(tok.replace("#", ""))
-                if preds is not None:
-                    if len(label):
-                        label = label[0]
-                        labels.append(label)
-                    label = []
-                    label.append(preds[idx][idx_tok])
-                map_idx += 1
-            else:
-                raise 
-        if len(word):
-            sent.append("".join(word))
-            if preds is not None:
-                labels.append(label[0])
-        res.append(sent)
-        res_preds.append(labels)
-    return res, res_preds
+        prev_idx = 0
+        for origin_idx in f.tok_map:
+            label.append(l[prev_idx])
+            prev_idx = origin_idx
+            if origin_idx < 0:
+                break
+        res_tokens.append(f.tokens[1:-1])
+        res_labels.append(label[1:])
+    return res_tokens, res_labels
 
 
 def tokens2spans_(tokens_, labels_):
