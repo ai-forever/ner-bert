@@ -62,8 +62,7 @@ pip install -r ./requirements.txt
 
 ```from modules.train import NerLearner```
 
-```learner = NerLearner(
-    model, data, best_model_path="/datadrive/models/factrueval/exp_final.cpt", base_lr=0.0001, lr_max=0.005, clip=5.0, use_lr_scheduler=True, sup_labels=data.id2label[5:])```
+```learner = NerLearner(model, data, best_model_path="/datadrive/models/factrueval/exp_final.cpt", base_lr=0.0001, lr_max=0.005, clip=5.0, use_lr_scheduler=True, sup_labels=data.id2label[5:])```
 
 ### 4. Learn your NER model:
 
@@ -79,9 +78,9 @@ pip install -r ./requirements.txt
 
 ```preds = learner.predict(dl)```
 
-For more detailed instructions see samples.ipynb
+For more detailed instructions see [samples.ipynb](https://github.com/king-menin/ner-bert/blob/master/samples.ipynb)
 
-## TODO:
+### TODO:
 1. Add tests
 2. Add searcher of best params
 3. Improve model:
