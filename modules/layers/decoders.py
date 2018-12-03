@@ -1,3 +1,6 @@
+import torch
+from torch.nn import functional
+from torch.autograd import Variable
 from torch import nn
 from .layers import Linears, MultiHeadAttention
 from .crf import CRF
@@ -91,3 +94,132 @@ class AttnCRFDecoder(nn.Module):
     def create(cls, label_size, input_dim, input_dropout=0.5, key_dim=64, val_dim=64, num_heads=3):
         return cls(CRF(label_size+2), label_size, input_dim, input_dropout,
                    key_dim, val_dim, num_heads)
+
+
+# TODO: remove start decode if worked
+class NMTDecoder(nn.Module):
+    def __init__(self,
+                 label_size,
+                 embedding_dim=64, hidden_dim=256, rnn_layers=1,
+                 dropout_p=0.1, use_cuda=True, pad_idx=0):
+        super(NMTDecoder, self).__init__()
+        self.slot_size = label_size
+        self.pad_idx = pad_idx
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.rnn_layers = rnn_layers
+        self.dropout_p = dropout_p
+        self.embedding = nn.Embedding(self.slot_size, self.embedding_dim)
+        self.lstm = nn.LSTM(self.embedding_dim + self.hidden_dim * 2,
+                           self.hidden_dim, self.rnn_layers,
+                           batch_first=True)
+        self.attn = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.slot_out = nn.Linear(self.hidden_dim * 2, self.slot_size)
+
+        self.loss = nn.CrossEntropyLoss(ignore_index=pad_idx)
+
+        self.use_cuda = use_cuda
+
+        if use_cuda:
+            self.cuda()
+
+        self.init_weights()
+
+    def init_weights(self):
+        nn.init.xavier_normal(self.embedding.weight)
+        nn.init.xavier_normal(self.attn.weight)
+        nn.init.xavier_normal(self.slot_out.weight)
+
+    def attention(self, hidden, encoder_outputs, input_mask):
+        """
+        hidden : 1,B,D
+        encoder_outputs : B,T,D
+        input_mask : B,T # ByteTensor
+        """
+        input_mask = input_mask == 0
+        hidden = hidden.squeeze(0).unsqueeze(2)
+
+        # B
+        batch_size = encoder_outputs.size(0)
+        # T
+        max_len = encoder_outputs.size(1)
+        # B*T,D -> B*T,D
+        energies = self.attn(encoder_outputs.contiguous().view(batch_size * max_len, -1))
+        energies = energies.view(batch_size, max_len, -1)
+        # B,T,D * B,D,1 --> B,1,T
+        attn_energies = energies.bmm(hidden).transpose(1, 2)
+        # PAD masking
+        attn_energies = attn_energies.squeeze(1).masked_fill(input_mask, -1e12)
+
+        # B,T
+        alpha = functional.softmax(attn_energies)
+        # B,1,T
+        alpha = alpha.unsqueeze(1)
+        # B,1,T * B,T,D => B,1,D
+        context = alpha.bmm(encoder_outputs)
+        # B,1,D
+        return context
+
+    def forward_model(self, encoder_outputs, input_mask):
+        real_context = []
+
+        for idx, o in enumerate(encoder_outputs):
+            real_length = input_mask[idx].sum().cpu().data.tolist()
+            real_context.append(o[real_length - 1])
+        context = torch.cat(real_context).view(encoder_outputs.size(0), -1).unsqueeze(1)
+
+        batch_size = encoder_outputs.size(0)
+
+        # start_decode = Variable(torch.LongTensor([[self.sep_idx] * batch_size])).transpose(1, 0)
+        # start_decode = Variable(torch.LongTensor([[0] * batch_size])).transpose(1, 0)
+        # if self.use_cuda:
+        #    start_decode = start_decode.cuda()
+
+        input_mask = input_mask == 0
+        # Get the embedding of the current input word
+        # embedded = self.embedding(start_decode)
+        embedded = Variable(torch.zeros(batch_size, self.embedding_dim))
+        if self.use_cuda:
+            embedded = embedded.cuda()
+        embedded = embedded.unsqueeze(1)
+        decode = []
+        aligns = encoder_outputs.transpose(0, 1)
+        length = encoder_outputs.size(1)
+        for i in range(length):
+            # B,1,D
+            aligned = aligns[i].unsqueeze(1)
+            # input, context, aligned encoder hidden, hidden
+            # print(embedded.shape, context.shape, aligned.shape)
+            _, hidden = self.lstm(torch.cat((embedded, context, aligned), 2))
+            
+            # print(hidden[0].shape, context.transpose(0, 1).shape)
+            
+            concated = torch.cat((hidden[0], context.transpose(0, 1)), 2)
+            score = self.slot_out(concated.squeeze(0))
+            softmaxed = functional.log_softmax(score)
+            decode.append(softmaxed)
+            _, input = torch.max(softmaxed, 1)
+            embedded = self.embedding(input.unsqueeze(1))
+
+            context = self.attention(hidden[0], encoder_outputs, input_mask)
+        slot_scores = torch.cat(decode, 1)
+
+        # return slot_scores.view(batch_size * length, -1)
+        return slot_scores.view(batch_size, length, -1)
+
+    def forward(self, encoder_outputs, input_mask):
+        scores = self.forward_model(encoder_outputs, input_mask)
+        return scores.argmax(-1)
+
+    def score(self, encoder_outputs, input_mask, labels_ids):
+        scores = self.forward_model(encoder_outputs, input_mask)
+        batch_size = encoder_outputs.shape[0]
+        len_ = encoder_outputs.shape[1]
+        return self.loss(scores.view(batch_size * len_, -1), labels_ids.view(-1))
+
+    @classmethod
+    def create(cls, label_size,
+               embedding_dim=64, hidden_dim=256, rnn_layers=1, dropout_p=0.1, use_cuda=True):
+        return cls(label_size=label_size,
+                   embedding_dim=embedding_dim, hidden_dim=hidden_dim,
+                   rnn_layers=rnn_layers, dropout_p=dropout_p, use_cuda=use_cuda)

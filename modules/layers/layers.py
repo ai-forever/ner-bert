@@ -1,9 +1,9 @@
-import torch.nn.init as I
-import torch.nn.functional as F
+from torch.nn import functional
 import numpy as np
 import torch
 from torch import nn
 from torch.nn import init
+import math
 
 
 class Linear(nn.Linear):
@@ -12,7 +12,7 @@ class Linear(nn.Linear):
                  out_features: int,
                  bias: bool = True):
         super(Linear, self).__init__(in_features, out_features, bias=bias)
-        I.orthogonal_(self.weight)
+        init.orthogonal_(self.weight)
 
 
 class Linears(nn.Module):
@@ -33,7 +33,7 @@ class Linears(nn.Module):
                                       for in_dim, out_dim
                                       in zip(in_dims, hiddens)])
         self.output_linear = Linear(hiddens[-1], out_features, bias=bias)
-        self.activation = getattr(F, activation)
+        self.activation = getattr(functional, activation)
 
     def forward(self, inputs):
         linear_outputs = inputs
@@ -143,3 +143,80 @@ class MultiHeadAttention(nn.Module):
         outputs = self.dropout(outputs)
 
         return self.layer_norm(residual + outputs), attn
+
+
+class _BahdanauAttention(nn.Module):
+    def __init__(self, method, hidden_size):
+        super(_BahdanauAttention, self).__init__()
+        self.method = method
+        self.hidden_size = hidden_size
+        self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
+        self.v = nn.Parameter(torch.rand(hidden_size))
+        stdv = 1. / math.sqrt(self.v.size(0))
+        self.v.data.normal_(mean=0, std=stdv)
+
+    def forward(self, hidden, encoder_outputs, mask=None):
+        """
+        :param hidden:
+            previous hidden state of the decoder, in shape (layers*directions,B,H)
+        :param encoder_outputs:
+            encoder outputs from Encoder, in shape (T,B,H)
+        :param mask:
+            used for masking. NoneType or tensor in shape (B) indicating sequence length
+        :return
+            attention energies in shape (B,T)
+        """
+        max_len = encoder_outputs.size(0)
+        # this_batch_size = encoder_outputs.size(1)
+        H = hidden.repeat(max_len, 1, 1).transpose(0, 1)
+        # [B*T*H]
+        encoder_outputs = encoder_outputs.transpose(0, 1)
+        # compute attention score
+        attn_energies = self.score(H, encoder_outputs)
+        if mask is not None:
+            attn_energies = attn_energies.masked_fill(mask, -1e18)
+        # normalize with softmax
+        return functional.softmax(attn_energies).unsqueeze(1)
+
+    def score(self, hidden, encoder_outputs):
+        # [B*T*2H]->[B*T*H]
+        energy = functional.tanh(self.attn(torch.cat([hidden, encoder_outputs], 2)))
+        # [B*H*T]
+        energy = energy.transpose(2, 1)
+        # [B*1*H]
+        v = self.v.repeat(encoder_outputs.data.shape[0], 1).unsqueeze(1)
+        # [B*1*T]
+        energy = torch.bmm(v, energy)
+        # [B*T]
+        return energy.squeeze(1)
+
+
+class BahdanauAttention(nn.Module):
+    """Reused from https://github.com/chrisbangun/pytorch-seq2seq_with_attention/"""
+
+    def __init__(self, hidden_dim=128, query_dim=128, memory_dim=128):
+        super(BahdanauAttention, self).__init__()
+
+        self.hidden_dim = hidden_dim
+        self.query_dim = query_dim
+        self.memory_dim = memory_dim
+        self.sofmax = nn.Softmax()
+
+        self.query_layer = nn.Linear(query_dim, hidden_dim, bias=False)
+        self.memory_layer = nn.Linear(memory_dim, hidden_dim, bias=False)
+        self.alignment_layer = nn.Linear(hidden_dim, 1, bias=False)
+
+    def alignment_score(self, query, keys):
+        query = self.query_layer(query)
+        keys = self.memory_layer(keys)
+
+        extendded_query = query.unsqueeze(1)
+        alignment = self.alignment_layer(functional.tanh(extendded_query + keys))
+        return alignment.squeeze(2)
+
+    def forward(self, query, keys):
+        alignment_score = self.alignment_score(query, keys)
+        weight = functional.softmax(alignment_score)
+        context = weight.unsqueeze(2) * keys
+        total_context = context.sum(1)
+        return total_context, alignment_score

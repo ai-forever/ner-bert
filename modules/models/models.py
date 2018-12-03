@@ -97,3 +97,34 @@ class BertBiLSTMAttnCRF(NerModel):
         decoder = AttnCRFDecoder.create(
             label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
+
+
+class BertBiLSTMAttnNMT(NerModel):
+
+    def forward(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder(output, batch[-2])
+
+    def score(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder.score(output, batch[-2], batch[-1])
+
+    @classmethod
+    def create(cls,
+               label_size,
+               # BertEmbedder params
+               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
+               freeze=True,
+               # BiLSTMEncoder params
+               enc_hidden_dim=128, rnn_layers=1,
+               # NMTDecoder params
+               dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
+               input_dropout=0.5,
+               # Global params
+               use_cuda=True):
+        embedder = BertEmbedder.create(
+            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
+        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        decoder = NMTDecoder.create(
+            label_size, dec_embedding_dim, dec_hidden_dim, dec_rnn_layers, input_dropout, use_cuda)
+        return cls(encoder, decoder, use_cuda)
