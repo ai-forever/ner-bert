@@ -1,3 +1,6 @@
 torch
 tqdm
 tensorflow
+pandas
+numpy
+six

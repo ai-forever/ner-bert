@@ -1,4 +1,3 @@
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from modules.data import tokenization
 import torch
@@ -10,11 +9,11 @@ class InputFeatures(object):
     """A single set of features of data."""
 
     def __init__(
-        self,
-        # Bert data
-        bert_tokens, input_ids, input_mask, input_type_ids,
-        # Origin data
-        tokens, labels, labels_ids, labels_mask, tok_map, cls=None, cls_idx=None):
+            self,
+            # Bert data
+            bert_tokens, input_ids, input_mask, input_type_ids,
+            # Origin data
+            tokens, labels, labels_ids, labels_mask, tok_map, cls=None, cls_idx=None):
         """
         Data has the following structure.
         data[0]: list, tokens ids
@@ -79,7 +78,7 @@ class DataLoaderForTrain(DataLoader):
             res = [t.cuda() for t in res]
         return res
 
-    
+
 class DataLoaderForPredict(DataLoader):
 
     def __init__(self, data_set, cuda, **kwargs):
@@ -155,7 +154,7 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             cur_tokens = tokenizer.tokenize(orig_token)
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
                 break
-                
+
             bert_tokens.extend(cur_tokens)
             bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
@@ -207,9 +206,9 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             cls=cls,
             cls_idx=cls_idx
         ))
-        assert len(input_ids) == len(input_mask) 
-        assert len(input_ids) == len(input_type_ids) 
-        assert len(input_ids) == len(labels_ids) 
+        assert len(input_ids) == len(input_mask)
+        assert len(input_ids) == len(input_type_ids)
+        assert len(input_ids) == len(labels_ids)
         assert len(input_ids) == len(labels_mask)
     if is_cls:
         return features, (label2idx, cls2idx)
@@ -241,7 +240,8 @@ def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is
 
 def get_bert_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
-    f, _ = get_data(df, tokenizer=learner.data.tokenizer, label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx)
+    f, _ = get_data(df, tokenizer=learner.data.tokenizer,
+                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx)
     dl = DataLoaderForPredict(
         f, batch_size=learner.data.batch_size, shuffle=False,
         cuda=True)
@@ -251,7 +251,8 @@ def get_bert_data_loader_for_predict(path, learner):
 
 class NerData(object):
 
-    def __init__(self, train_dl, valid_dl, tokenizer, label2idx, cls2idx=None, batch_size=16, cuda=True):
+    def __init__(self, train_dl, valid_dl, tokenizer, label2idx,
+                 cls2idx=None, batch_size=16, cuda=True):
         self.train_dl = train_dl
         self.valid_dl = valid_dl
         self.tokenizer = tokenizer
@@ -268,12 +269,14 @@ class NerData(object):
     @classmethod
     def create(cls,
                train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False, data_type="bert_cased"):
-        fn = None
         if data_type == "bert_cased":
             do_lower_case = False
             fn = get_bert_data_loaders
         elif data_type == "bert_uncased":
             do_lower_case = True
             fn = get_bert_data_loaders
+        else:
+            raise NotImplementedError("No requested mode :(.")
         return cls(*fn(
-            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case), batch_size=batch_size, cuda=cuda)
+            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case),
+                   batch_size=batch_size, cuda=cuda)
