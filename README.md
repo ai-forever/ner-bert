@@ -1,11 +1,11 @@
 # PyTorch solution of NER task with Google AI's BERT model
-## Introduction
+## 0. Introduction
 
 This repository contains solution of NER task based on PyTorch [reimplementation](https://github.com/huggingface/pytorch-pretrained-BERT) of [Google's TensorFlow repository for the BERT model](https://github.com/google-research/bert) that was released together with the paper [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) by Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova.
 
 This implementation can load any pre-trained TensorFlow checkpoint for BERT (in particular [Google's pre-trained models](https://github.com/google-research/bert)) and a conversion script is provided (see below).
 
-## Loading a TensorFlow checkpoint (e.g. [Google's pre-trained models](https://github.com/google-research/bert#pre-trained-models))
+## 1. Loading a TensorFlow checkpoint (e.g. [Google's pre-trained models](https://github.com/google-research/bert#pre-trained-models))
 
 You can convert any TensorFlow checkpoint for BERT (in particular [the pre-trained models released by Google](https://github.com/google-research/bert#pre-trained-models)) in a PyTorch save file by using the [`convert_tf_checkpoint_to_pytorch.py`](convert_tf_checkpoint_to_pytorch.py) script.
 
@@ -28,9 +28,19 @@ python3 convert_tf_checkpoint_to_pytorch.py \
 
 You can download Google's pre-trained models for the conversion [here](https://github.com/google-research/bert#pre-trained-models).
 
-There is used the [BERT-Base, Multilingual](https://storage.googleapis.com/bert_models/2018_11_03/multilingual_L-12_H-768_A-12.zip) in this solution.
+There is used the [BERT-Base, Multilingual](https://storage.googleapis.com/bert_models/2018_11_03/multilingual_L-12_H-768_A-12.zip) and [BERT-Cased, Multilingual](https://storage.googleapis.com/bert_models/2018_11_23/multi_cased_L-12_H-768_A-12.zip) (recommended) in this solution.
 
-## Installation, requirements, test
+## 2. Results
+We didn't search best parametres and obtained the following results for no more than <b>10 epochs</b>.
+
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set
+|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.937 | 0.883 | 4
+| [Atis]([here](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data)) | en | 0.852 | 0.787 | 65
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.945 | 0.858 | 5
+
+
+## 3. Installation, requirements, test
 
 This code was tested on Python 3.5+. The requirements are:
 
@@ -43,6 +53,11 @@ To install the dependencies:
 ````bash
 pip install -r ./requirements.txt
 ````
+
+## PyTorch neural network models
+
+TODO: Add description
+
 
 ## Usage
 

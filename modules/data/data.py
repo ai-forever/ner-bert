@@ -113,6 +113,7 @@ class DataLoaderForPredict(DataLoader):
             sorted_idx = sorted_idx.cuda()
         return res, sorted_idx
 
+
 def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None, is_cls=False):
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
@@ -152,6 +153,9 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
                 prev_label = label
             tok_map.append(len(bert_tokens))
             cur_tokens = tokenizer.tokenize(orig_token)
+            if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
+                break
+                
             bert_tokens.extend(cur_tokens)
             bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
@@ -186,6 +190,7 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             if cls not in cls2idx:
                 cls2idx[cls] = len(cls2idx)
             cls_idx = cls2idx[cls]
+
         features.append(InputFeatures(
             # Bert data
             bert_tokens=bert_tokens,
@@ -202,6 +207,10 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             cls=cls,
             cls_idx=cls_idx
         ))
+        assert len(input_ids) == len(input_mask) 
+        assert len(input_ids) == len(input_type_ids) 
+        assert len(input_ids) == len(labels_ids) 
+        assert len(input_ids) == len(labels_mask)
     if is_cls:
         return features, (label2idx, cls2idx)
     return features, label2idx

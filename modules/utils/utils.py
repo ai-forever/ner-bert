@@ -19,16 +19,24 @@ def bert_labels2tokens(dl, labels):
 def tokens2spans_(tokens_, labels_):
     res = []
     idx_ = 0
-    while idx_ < len(tokens_):
+    while idx_ < len(labels_):
         label = labels_[idx_]
         if label in ["I_O", "B_O"]:
             res.append((tokens_[idx_], "O"))
             idx_ += 1
+        elif label == "[SEP]":
+            break
+        elif label == "[CLS]":
+            res.append((tokens_[idx_], label))
+            idx_ += 1
         else:
             span = [tokens_[idx_]]
-            span_label = labels_[idx_].split("_")[1]
+            try:
+                span_label = labels_[idx_].split("_")[1]
+            except:
+                print(label, labels_[idx_].split("_"))
             idx_ += 1
-            while idx_ < len(tokens_) and labels_[idx_] not in ["I_O", "B_O"] and labels_[idx_].split("_")[0]=="I":
+            while idx_ < len(labels_) and labels_[idx_] not in ["I_O", "B_O"] and labels_[idx_].split("_")[0]=="I":
                 if span_label == labels_[idx_].split("_")[1]:
                     span.append(tokens_[idx_])
                     idx_ += 1
