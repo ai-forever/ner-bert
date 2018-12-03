@@ -36,7 +36,7 @@ We didn't search best parametres and obtained the following results for no more 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set
 |-|-|-|-|-|
 | [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.937 | 0.883 | 4
-| [Atis]([here](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data)) | en | 0.852 | 0.787 | 65
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65
 | [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.945 | 0.858 | 5
 
 
