@@ -96,12 +96,11 @@ class AttnCRFDecoder(nn.Module):
                    key_dim, val_dim, num_heads)
 
 
-# TODO: remove start decode if worked
 class NMTDecoder(nn.Module):
     def __init__(self,
                  label_size,
                  embedding_dim=64, hidden_dim=256, rnn_layers=1,
-                 dropout_p=0.1, use_cuda=True, pad_idx=0):
+                 dropout_p=0.1, pad_idx=0, use_cuda=True):
         super(NMTDecoder, self).__init__()
         self.slot_size = label_size
         self.pad_idx = pad_idx
@@ -111,8 +110,8 @@ class NMTDecoder(nn.Module):
         self.dropout_p = dropout_p
         self.embedding = nn.Embedding(self.slot_size, self.embedding_dim)
         self.lstm = nn.LSTM(self.embedding_dim + self.hidden_dim * 2,
-                           self.hidden_dim, self.rnn_layers,
-                           batch_first=True)
+                            self.hidden_dim, self.rnn_layers,
+                            batch_first=True)
         self.attn = nn.Linear(self.hidden_dim, self.hidden_dim)
         self.slot_out = nn.Linear(self.hidden_dim * 2, self.slot_size)
 
@@ -170,14 +169,9 @@ class NMTDecoder(nn.Module):
 
         batch_size = encoder_outputs.size(0)
 
-        # start_decode = Variable(torch.LongTensor([[self.sep_idx] * batch_size])).transpose(1, 0)
-        # start_decode = Variable(torch.LongTensor([[0] * batch_size])).transpose(1, 0)
-        # if self.use_cuda:
-        #    start_decode = start_decode.cuda()
-
         input_mask = input_mask == 0
         # Get the embedding of the current input word
-        # embedded = self.embedding(start_decode)
+
         embedded = Variable(torch.zeros(batch_size, self.embedding_dim))
         if self.use_cuda:
             embedded = embedded.cuda()
@@ -219,7 +213,7 @@ class NMTDecoder(nn.Module):
 
     @classmethod
     def create(cls, label_size,
-               embedding_dim=64, hidden_dim=256, rnn_layers=1, dropout_p=0.1, use_cuda=True):
+               embedding_dim=64, hidden_dim=256, rnn_layers=1, dropout_p=0.1, pad_idx=0, use_cuda=True):
         return cls(label_size=label_size,
                    embedding_dim=embedding_dim, hidden_dim=hidden_dim,
-                   rnn_layers=rnn_layers, dropout_p=dropout_p, use_cuda=use_cuda)
+                   rnn_layers=rnn_layers, dropout_p=dropout_p, pad_idx=pad_idx, use_cuda=use_cuda)
