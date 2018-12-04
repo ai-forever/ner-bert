@@ -34,6 +34,7 @@ There is used the [BERT-Base, Multilingual](https://storage.googleapis.com/bert_
 We didn't search best parametres and obtained the following results for no more than <b>10 epochs</b>.
 
 Model: `BertBiLSTMAttnCRF`.
+
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
 | [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | 0.883 | 4 | [factrueval.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval.ipynb)
@@ -41,6 +42,7 @@ Model: `BertBiLSTMAttnCRF`.
 | [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](https://github.com/king-menin/ner-bert/blob/master/atis.ipynb)
 
 Model: `BertBiLSTMAttnNMT`.
+
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
 | [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval-nmt.ipynb)
