@@ -33,11 +33,19 @@ There is used the [BERT-Base, Multilingual](https://storage.googleapis.com/bert_
 ## 2. Results
 We didn't search best parametres and obtained the following results for no more than <b>10 epochs</b>.
 
-| Dataset | Lang | IOB precision | Span precision | Total spans in test set
-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.937 | 0.883 | 4
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65
-| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.945 | 0.858 | 5
+Model: `BertBiLSTMAttnCRF`.
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
+|-|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | 0.883 | 4 | [factrueval.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](https://github.com/king-menin/ner-bert/blob/master/conll-2003.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](https://github.com/king-menin/ner-bert/blob/master/atis.ipynb)
+
+Model: `BertBiLSTMAttnNMT`.
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
+|-|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval-nmt.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [conll-2003-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/conll-2003-nmt.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [atis-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/atis-nmt.ipynb)
 
 
 ## 3. Installation, requirements, test
@@ -94,10 +102,3 @@ TODO: Add description
 ```preds = learner.predict(dl)```
 
 For more detailed instructions see [samples.ipynb](https://github.com/king-menin/ner-bert/blob/master/samples.ipynb)
-
-### TODO:
-1. Add tests
-2. Add searcher of best params
-3. Improve model:
-    a. Add pos tags;
-    b. Refactor attention model
