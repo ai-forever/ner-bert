@@ -346,6 +346,31 @@ class NMTCRFDecoder(nn.Module):
                    rnn_layers=rnn_layers, dropout_p=dropout_p, pad_idx=pad_idx, use_cuda=use_cuda)
 
 
+class PoolingLinearClassifier(nn.Module):
+    "Create a linear classifier with pooling."
+
+    def __init__(self, input_dim, intent_size, input_dropout=0.5):
+        super().__init__()
+        self.input_dim = input_dim
+        self.intent_size = intent_size
+        self.input_dropout = input_dropout
+        self.dropout = nn.Dropout(p=input_dropout)
+        self.linear = Linears(input_dim * 3, intent_size, [input_dim // 2], activation="relu")
+
+    def pool(self, x, bs, is_max):
+        "Pool the tensor along the seq_len dimension."
+        f = functional.adaptive_max_pool1d if is_max else functional.adaptive_avg_pool1d
+        return f(x.permute(1,2,0), (1,)).view(bs,-1)
+
+    def forward(self, output):
+        output = self.dropout(output).transpose(0, 1)
+        sl,bs,_ = output.size()
+        avgpool = self.pool(output, bs, False)
+        mxpool = self.pool(output, bs, True)
+        x = torch.cat([output[-1], mxpool, avgpool], 1)
+        return self.linear(x)
+
+
 class AttnCRFJointDecoder(nn.Module):
     def __init__(self,
                  crf, label_size, input_dim, intent_size, input_dropout=0.5,
@@ -359,17 +384,14 @@ class AttnCRFJointDecoder(nn.Module):
         self.crf = crf
         self.label_size = label_size
         self.intent_size = intent_size
-        self.intent_linear = Linears(in_features=input_dim,
-                                     out_features=intent_size,
-                                     hiddens=[input_dim // 2])
+        self.intent_out = PoolingLinearClassifier(input_dim, intent_size, input_dropout)
         self.intent_loss = nn.CrossEntropyLoss()
 
     def forward_model(self, inputs, labels_mask=None):
         batch_size, seq_len, input_dim = inputs.size()
-        inputs, _ = self.attn(inputs, inputs, inputs, labels_mask)
-
+        inputs, hidden = self.attn(inputs, inputs, inputs, labels_mask)
+        intent_output = self.intent_out(inputs)
         output = inputs.contiguous().view(-1, self.input_dim)
-        intent_output = self.intent_linear(output).view(batch_size, -1)
         # Fully-connected layer
         output = self.linear.forward(output)
         output = output.view(batch_size, seq_len, self.label_size)

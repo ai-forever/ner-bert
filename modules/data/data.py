@@ -211,6 +211,7 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
         assert len(input_ids) == len(labels_ids)
         assert len(input_ids) == len(labels_mask)
     if is_cls:
+        
         return features, (label2idx, cls2idx)
     return features, label2idx
 
@@ -222,13 +223,13 @@ def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is
     cls2idx = None
 
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=do_lower_case)
-    train_f, label2idx = get_data(train, tokenizer)
+    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls)
     if is_cls:
         label2idx, cls2idx = label2idx
     train_dl = DataLoaderForTrain(
         train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
     valid_f, label2idx = get_data(
-        valid, tokenizer, label2idx, cls2idx=cls2idx)
+        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls)
     if is_cls:
         label2idx, cls2idx = label2idx
     valid_dl = DataLoaderForTrain(

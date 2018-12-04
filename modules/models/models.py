@@ -1,6 +1,5 @@
 from modules.layers.encoders import *
 from modules.layers.decoders import *
-from modules.layers.decoders import AttnCRFDecoder
 from modules.layers.embedders import *
 import abc
 
@@ -176,7 +175,7 @@ class BertBiLSTMAttnCRFJoint(NerModel):
 
     @classmethod
     def create(cls,
-               label_size,
+               label_size, intent_size,
                # BertEmbedder params
                bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
                freeze=True,
@@ -190,6 +189,6 @@ class BertBiLSTMAttnCRFJoint(NerModel):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
         encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = AttnCRFDecoder.create(
-            label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads)
+        decoder = AttnCRFJointDecoder.create(
+            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
