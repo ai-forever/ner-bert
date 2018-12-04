@@ -41,6 +41,9 @@ Model: `BertBiLSTMAttnCRF`.
 | [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](conll-2003.ipynb)
 | [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](atis.ipynb)
 
+* Factrueval (f1): 0.9163±0.006, best 0.926.
+
+
 Model: `BertBiLSTMAttnNMT`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
