@@ -66,7 +66,13 @@ pip install -r ./requirements.txt
 
 ## PyTorch neural network models
 
-TODO: Add description
+All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>weighted</i> (as proposed in [elmo]((https://allennlp.org/elmo))) bert output from 12 layers. There are three models that is obtained by using different `Decoder`.
+
+`Encoder`: BertBiLSTM
+
+1. `BertBiLSTMCRF`: `Encoder` + `Decoder` (BiLSTM + CRF)
+2. `BertBiLSTMAttnCRF`: `Encoder` + `Decoder` (BiLSTM + MultiHead Attention + CRF)
+2. `BertBiLSTMAttnNMT`: `Encoder` + `Decoder` (LSTM + Bahdanau Attention - NMT Decode)
 
 
 ## Usage
