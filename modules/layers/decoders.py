@@ -344,3 +344,56 @@ class NMTCRFDecoder(nn.Module):
         return cls(label_size=label_size, crf=crf,
                    embedding_dim=embedding_dim, hidden_dim=hidden_dim,
                    rnn_layers=rnn_layers, dropout_p=dropout_p, pad_idx=pad_idx, use_cuda=use_cuda)
+
+
+class AttnCRFJointDecoder(nn.Module):
+    def __init__(self,
+                 crf, label_size, input_dim, intent_size, input_dropout=0.5,
+                 key_dim=64, val_dim=64, num_heads=3):
+        super(AttnCRFJointDecoder, self).__init__()
+        self.input_dim = input_dim
+        self.attn = MultiHeadAttention(key_dim, val_dim, input_dim, num_heads, input_dropout)
+        self.linear = Linears(in_features=input_dim,
+                              out_features=label_size,
+                              hiddens=[input_dim // 2])
+        self.crf = crf
+        self.label_size = label_size
+        self.intent_size = intent_size
+        self.intent_linear = Linears(in_features=input_dim,
+                                     out_features=intent_size,
+                                     hiddens=[input_dim // 2])
+        self.intent_loss = nn.CrossEntropyLoss()
+
+    def forward_model(self, inputs, labels_mask=None):
+        batch_size, seq_len, input_dim = inputs.size()
+        inputs, _ = self.attn(inputs, inputs, inputs, labels_mask)
+
+        output = inputs.contiguous().view(-1, self.input_dim)
+        intent_output = self.intent_linear(output).view(batch_size, -1)
+        # Fully-connected layer
+        output = self.linear.forward(output)
+        output = output.view(batch_size, seq_len, self.label_size)
+        return output, intent_output
+
+    def forward(self, inputs, labels_mask):
+        self.eval()
+        lens = labels_mask.sum(-1)
+        logits, intent_output = self.forward_model(inputs)
+        logits = self.crf.pad_logits(logits)
+        scores, preds = self.crf.viterbi_decode(logits, lens)
+        self.train()
+        return preds, intent_output.argmax(-1)
+
+    def score(self, inputs, labels_mask, labels, cls_ids):
+        lens = labels_mask.sum(-1)
+        logits, intent_output = self.forward_model(inputs)
+        logits = self.crf.pad_logits(logits)
+        norm_score = self.crf.calc_norm_score(logits, lens)
+        gold_score = self.crf.calc_gold_score(logits, labels, lens)
+        loglik = gold_score - norm_score
+        return -loglik.mean() + self.intent_loss(intent_output, cls_ids)
+
+    @classmethod
+    def create(cls, label_size, input_dim, intent_size, input_dropout=0.5, key_dim=64, val_dim=64, num_heads=3):
+        return cls(CRF(label_size + 2), label_size, input_dim, intent_size, input_dropout,
+                   key_dim, val_dim, num_heads)

@@ -2,10 +2,9 @@ from tqdm._tqdm_notebook import tqdm_notebook
 from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
-from modules.utils.plot_metrics import *
+from modules.utils.plot_metrics import get_mean_max_metric
 from modules.train.clr import CyclicLR
 from torch.optim import Adam
-from torch import nn
 
 
 logging.basicConfig(level=logging.INFO)
@@ -54,11 +53,8 @@ def transformed_result(preds, mask, id2label, target_all=None, pad_idx=0):
         for batch_p, batch_m in zip(preds, mask):
             
             for pred, bm in zip(batch_p, batch_m):
-                sent = []
                 assert len(pred) == len(bm)
                 bm = bm.sum().cpu().data.tolist()
-                # for p in pred[:bm]:
-                #    sent.append(p.cpu().data.tolist())
                 sent = pred[:bm].cpu().data.tolist()
                 preds_cpu.append([id2label[w] for w in sent])
     if target_all is not None:
@@ -104,9 +100,8 @@ def predict(dl, model, id2label):
 
 
 class NerLearner(object):
-    def __init__(self, model, data, best_model_path, base_lr=0.001, lr_max=0.01, betas=[0.8, 0.9], clip=0.25,
-                 verbose=True, use_lr_scheduler=True, sup_labels=None
-                ):
+    def __init__(self, model, data, best_model_path, base_lr=0.001, lr_max=0.01, betas=list([0.8, 0.9]), clip=0.25,
+                 verbose=True, use_lr_scheduler=True, sup_labels=None):
         self.model = model
         self.base_lr = base_lr
         self.optimizer = Adam(model.parameters(), lr=base_lr, betas=betas)
@@ -123,7 +118,8 @@ class NerLearner(object):
         if use_lr_scheduler:
             if verbose:
                 logging.info("Use lr OneCycleScheduler...")
-            self.lr_scheduler = CyclicLR(self.optimizer, base_lr=base_lr, max_lr=lr_max, step_size=4 * len(data.train_dl))
+            self.lr_scheduler = CyclicLR(
+                self.optimizer, base_lr=base_lr, max_lr=lr_max, step_size=4 * len(data.train_dl))
         else:
             if verbose:
                 logging.info("Don't use lr scheduler...")
