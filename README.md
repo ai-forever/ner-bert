@@ -58,7 +58,7 @@ We didn't search best parametres and obtained the following results for no more 
 
 | Dataset | Lang | IOB precision | Span precision | Clf precision | Total spans in test set | Total classes | Notebook
 |-|-|-|-|-|-|-|-|
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | 17 | [atis-joint.ipynb](atis-nmt.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | 17 | [atis-joint.ipynb](atis-joint.ipynb)
 
 
 ## 3. Installation, requirements, test
