@@ -33,7 +33,8 @@ There is used the [BERT-Base, Multilingual](https://storage.googleapis.com/bert_
 ## 2. Results
 We didn't search best parametres and obtained the following results for no more than <b>10 epochs</b>.
 
-Model: `BertBiLSTMAttnCRF`.
+### Only NER models
+#### Model: `BertBiLSTMAttnCRF`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
@@ -44,13 +45,20 @@ Model: `BertBiLSTMAttnCRF`.
 * Factrueval (f1): 0.9163±0.006, best 0.926.
 
 
-Model: `BertBiLSTMAttnNMT`.
+#### Model: `BertBiLSTMAttnNMT`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
 | [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](factrueval-nmt.ipynb)
 | [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [atis-nmt.ipynb](atis-nmt.ipynb)
 | [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [conll-2003-nmt.ipynb](conll-2003-nmt.ipynb)
+
+### Joint Models
+#### Model: `BertBiLSTMAttnCRFJoint`
+
+| Dataset | Lang | IOB precision | Span precision | Clf precision | Total spans in test set | Total classes | Notebook
+|-|-|-|-|-|-|-|
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | [atis-joint.ipynb](atis-nmt.ipynb)
 
 
 ## 3. Installation, requirements, test
@@ -75,7 +83,8 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 1. `BertBiLSTMCRF`: `Encoder` + `Decoder` (BiLSTM + CRF)
 2. `BertBiLSTMAttnCRF`: `Encoder` + `Decoder` (BiLSTM + MultiHead Attention + CRF)
-2. `BertBiLSTMAttnNMT`: `Encoder` + `Decoder` (LSTM + Bahdanau Attention - NMT Decode)
+3. `BertBiLSTMAttnNMT`: `Encoder` + `Decoder` (LSTM + Bahdanau Attention - NMT Decode)
+4. `BertBiLSTMAttnCRFJoint`: `Encoder` + `Decoder` (BiLSTM + MultiHead Attention + CRF) + (PoolingLinearClassifier - for classification) - joint model with classification.
 
 
 ## Usage

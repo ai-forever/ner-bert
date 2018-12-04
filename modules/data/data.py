@@ -242,7 +242,7 @@ def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is
 def get_bert_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
     f, _ = get_data(df, tokenizer=learner.data.tokenizer,
-                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx)
+                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx, is_cls=learner.data.is_cls)
     dl = DataLoaderForPredict(
         f, batch_size=learner.data.batch_size, shuffle=False,
         cuda=True)

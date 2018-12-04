@@ -123,7 +123,7 @@ def predict(dl, model, id2label, id2cls=None):
         preds_cpu_ = transformed_result([unsorted_pred], [unsorted_mask], id2label)
         preds_cpu.extend(preds_cpu_)
     if id2cls is not None:
-        return preds_cpu_cls, preds_cpu
+        return preds_cpu, preds_cpu_cls
     return preds_cpu
 
 
