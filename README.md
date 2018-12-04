@@ -37,17 +37,17 @@ Model: `BertBiLSTMAttnCRF`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | <b>0.883</b> | 4 | [factrueval.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval.ipynb)
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](https://github.com/king-menin/ner-bert/blob/master/conll-2003.ipynb)
-| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](https://github.com/king-menin/ner-bert/blob/master/atis.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | <b>0.883</b> | 4 | [factrueval.ipynb](factrueval.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](conll-2003.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](atis.ipynb)
 
 Model: `BertBiLSTMAttnNMT`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/factrueval-nmt.ipynb)
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [atis-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/atis-nmt.ipynb)
-| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [conll-2003-nmt.ipynb](https://github.com/king-menin/ner-bert/blob/master/conll-2003-nmt.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](factrueval-nmt.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [atis-nmt.ipynb](atis-nmt.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [conll-2003-nmt.ipynb](conll-2003-nmt.ipynb)
 
 
 ## 3. Installation, requirements, test
@@ -66,7 +66,7 @@ pip install -r ./requirements.txt
 
 ## PyTorch neural network models
 
-All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>weighted</i> (as proposed in [elmo]((https://allennlp.org/elmo))) bert output from 12 layers. There are three models that is obtained by using different `Decoder`.
+All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>weighted</i> (as proposed in [elmo](https://allennlp.org/elmo)) bert output from 12 layers. There are three models that is obtained by using different `Decoder`.
 
 `Encoder`: BertBiLSTM
 
@@ -109,4 +109,4 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ```preds = learner.predict(dl)```
 
-For more detailed instructions see [samples.ipynb](https://github.com/king-menin/ner-bert/blob/master/samples.ipynb)
+For more detailed instructions see [samples.ipynb](samples.ipynb)
