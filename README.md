@@ -44,7 +44,6 @@ We didn't search best parametres and obtained the following results for no more 
 
 * Factrueval (f1): 0.9163±0.006, best 0.926.
 
-
 #### Model: `BertBiLSTMAttnNMT`.
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
@@ -60,6 +59,11 @@ We didn't search best parametres and obtained the following results for no more 
 |-|-|-|-|-|-|-|-|
 | [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | 17 | [atis-joint.ipynb](atis-joint.ipynb)
 
+#### Model: `BertBiLSTMAttnNMTJoint`
+
+| Dataset | Lang | IOB precision | Span precision | Clf precision | Total spans in test set | Total classes | Notebook
+|-|-|-|-|-|-|-|-|
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.913 | 0.820 | 0.888 | 65 | 17 | [atis-joint.ipynb](atis-joint.ipynb)
 
 ## 3. Installation, requirements, test
 
@@ -85,6 +89,7 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 2. `BertBiLSTMAttnCRF`: `Encoder` + `Decoder` (BiLSTM + MultiHead Attention + CRF)
 3. `BertBiLSTMAttnNMT`: `Encoder` + `Decoder` (LSTM + Bahdanau Attention - NMT Decode)
 4. `BertBiLSTMAttnCRFJoint`: `Encoder` + `Decoder` (BiLSTM + MultiHead Attention + CRF) + (PoolingLinearClassifier - for classification) - joint model with classification.
+5. `BertBiLSTMAttnNMTJoint`: `Encoder` + `Decoder` (LSTM + Bahdanau Attention - NMT Decode) + (LinearClassifier - for classification) - joint model with classification.
 
 
 ## Usage
