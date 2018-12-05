@@ -250,7 +250,7 @@ def get_bert_data_loader_for_predict(path, learner):
     return dl
 
 
-class NerData(object):
+class BertNerData(object):
 
     def __init__(self, train_dl, valid_dl, tokenizer, label2idx,
                  cls2idx=None, batch_size=16, cuda=True):

@@ -1,6 +1,6 @@
 from .train.train import NerLearner
-from .data.data import NerData
-from .models.models import BertBiLSTMCRF
+from .data.bert_data import BertNerData
+from .models.bert_models import BertBiLSTMCRF
 
 
-__all__ = ["NerLearner", "NerData", "BertBiLSTMCRF"]
+__all__ = ["NerLearner", "BertNerData", "BertBiLSTMCRF"]

@@ -24,7 +24,7 @@ import tensorflow as tf
 import torch
 import numpy as np
 
-from modules.layers.modeling import BertConfig, BertModel
+from modules.layers.bert_modeling import BertConfig, BertModel
 
 parser = argparse.ArgumentParser()
 
