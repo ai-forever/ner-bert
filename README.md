@@ -98,13 +98,13 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ### 1. Loading data:
 
-```from modules.data import NerData```
+```from modules.bert_data import BertNerData as NerData```
 
 ```data = NerData.create(train_path, valid_path, vocab_file)```
 
 ### 2. Create model:
 
-```from modules.models import BertBiLSTMCRF```
+```from modules.bert_models import BertBiLSTMCRF```
 
 ```model = BertBiLSTMCRF.create(len(data.label2idx), bert_config_file, init_checkpoint_pt, enc_hidden_dim=256)```
 
@@ -120,7 +120,7 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ### 5. Predict on new data:
 
-```from modules.data.data import get_bert_data_loader_for_predict```
+```from modules.data.bert_data import get_bert_data_loader_for_predict```
 
 ```dl = get_bert_data_loader_for_predict(data_path + "valid.csv", learner)```
 
