@@ -43,6 +43,7 @@ We didn't search best parametres and obtained the following results for no more 
 | [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](atis.ipynb)
 
 * Factrueval (f1): 0.9163±0.006, best **0.926**.
+* Atis (f1): 0.882±0.02, best **0.896**
 * Conll-2003 (f1, dev): 0.949±0.002, best **0.951**; 0.892 (f1, test).
 
 #### Model: `BertBiLSTMAttnNMT`.
