@@ -38,9 +38,9 @@ We didn't search best parametres and obtained the following results for no more 
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | <b>0.883</b> | 4 | [factrueval.ipynb](factrueval.ipynb)
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](conll-2003.ipynb)
-| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](atis.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.937</b> | <b>0.883</b> | 4 | [factrueval.ipynb](examples/factrueval.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.852 | 0.787 | 65 | [conll-2003.ipynb](examples/conll-2003.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | <b>0.945</b> | 0.858 | 5 | [atis.ipynb](examples/atis.ipynb)
 
 * Factrueval (f1): 0.9163±0.006, best **0.926**.
 * Atis (f1): 0.882±0.02, best **0.896**
@@ -50,22 +50,22 @@ We didn't search best parametres and obtained the following results for no more 
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](factrueval-nmt.ipynb)
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [atis-nmt.ipynb](atis-nmt.ipynb)
-| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [conll-2003-nmt.ipynb](conll-2003-nmt.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.925 | 0.827 | 4 | [factrueval-nmt.ipynb](examples/factrueval-nmt.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | <b>0.919</b> | <b>0.829</b> | 65 | [atis-nmt.ipynb](examples/atis-nmt.ipynb)
+| [Conll-2003](https://github.com/kyzhouhzau/BERT-NER/tree/master/NERdata) | en | 0.936 | <b>0.900</b> | 5 | [conll-2003-nmt.ipynb](examples/conll-2003-nmt.ipynb)
 
 ### Joint Models
 #### Model: `BertBiLSTMAttnCRFJoint`
 
 | Dataset | Lang | IOB precision | Span precision | Clf precision | Total spans in test set | Total classes | Notebook
 |-|-|-|-|-|-|-|-|
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | 17 | [atis-joint.ipynb](atis-joint.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.877 | 0.824 | 0.894 | 65 | 17 | [atis-joint.ipynb](examples/atis-joint.ipynb)
 
 #### Model: `BertBiLSTMAttnNMTJoint`
 
 | Dataset | Lang | IOB precision | Span precision | Clf precision | Total spans in test set | Total classes | Notebook
 |-|-|-|-|-|-|-|-|
-| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.913 | 0.820 | 0.888 | 65 | 17 | [atis-joint-nmt.ipynb](atis-joint-nmt.ipynb)
+| [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.913 | 0.820 | 0.888 | 65 | 17 | [atis-joint-nmt.ipynb](examples/atis-joint-nmt.ipynb)
 
 ## 3. Installation, requirements, test
 
@@ -128,4 +128,4 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ```preds = learner.predict(dl)```
 
-For more detailed instructions see [samples.ipynb](samples.ipynb)
+For more detailed instructions see [samples.ipynb](examples/samples.ipynb)
