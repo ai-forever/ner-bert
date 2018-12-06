@@ -173,8 +173,8 @@ class ElmoEmbedder(nn.Module):
             nn.init.xavier_normal(self.elmo_weights)
             nn.init.xavier_normal(self.elmo_gamma)
 
-    def forward(self, batch):
-        w, c, masks = batch
+    def forward(self, *batch):
+        w, c, masks = batch[:3]
         all_encoder_layers = self.model.forward(w, c, masks)
         if self.elmo_mode == "avg":
             return all_encoder_layers.mean(0)

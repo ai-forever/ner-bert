@@ -54,7 +54,7 @@ class ElmoBiLSTMCRF(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # CRFDecoder params
                input_dropout=0.5,
@@ -62,7 +62,7 @@ class ElmoBiLSTMCRF(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = CRFDecoder.create(label_size, encoder.output_dim, input_dropout)
         return cls(encoder, decoder, use_cuda)
 
@@ -83,7 +83,7 @@ class ElmoBiLSTMAttnCRF(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # AttnCRFDecoder params
                key_dim=64, val_dim=64, num_heads=3,
@@ -92,7 +92,7 @@ class ElmoBiLSTMAttnCRF(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnCRFDecoder.create(
             label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
@@ -115,7 +115,7 @@ class ElmoBiLSTMAttnNMT(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # NMTDecoder params
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
@@ -124,7 +124,7 @@ class ElmoBiLSTMAttnNMT(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTDecoder.create(
             label_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
@@ -147,7 +147,7 @@ class ElmoBiLSTMAttnNMTCRF(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # NMTDecoder params
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
@@ -156,7 +156,7 @@ class ElmoBiLSTMAttnNMTCRF(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTCRFDecoder.create(
             label_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
@@ -179,7 +179,7 @@ class ElmoBiLSTMAttnCRFJoint(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # AttnCRFDecoder params
                key_dim=64, val_dim=64, num_heads=3,
@@ -188,7 +188,7 @@ class ElmoBiLSTMAttnCRFJoint(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnCRFJointDecoder.create(
             label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
@@ -211,7 +211,7 @@ class ElmoBiLSTMAttnNMTJoint(NerModel):
                # ElmoEmbedder params
                model_dir, config_name, embedding_dim=1024, elmo_mode="avg",
                freeze=True,
-               # BiLSTMEncoder params
+               # ElmoBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                # NMTDecoder params
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
@@ -220,7 +220,7 @@ class ElmoBiLSTMAttnNMTJoint(NerModel):
                use_cuda=True):
         embedder = ElmoEmbedder.create(
             model_dir, config_name, embedding_dim, use_cuda, elmo_mode, freeze)
-        encoder = BiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        encoder = ElmoBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTJointDecoder.create(
             label_size, intent_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
