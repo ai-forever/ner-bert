@@ -74,19 +74,19 @@ We tested `BertBiLSTMCRF`, `BertBiLSTMAttnCRF` and `BertBiLSTMAttnNMT` on russia
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.903</b> | <b>0.851</b> | 4 | [samples.ipynb](examples_elmo/samples.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.903 | 0.851 | 4 | [samples.ipynb](examples_elmo/samples.ipynb)
 
 #### Model `BertBiLSTMAttnCRF`:
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.899</b> | <b>0.819</b> | 4 | [factrueval.ipynb](examples_elmo/factrueval.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.899 | 0.819 | 4 | [factrueval.ipynb](examples_elmo/factrueval.ipynb)
 
 #### Model `BertBiLSTMAttnNMT`:
 
 | Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
 |-|-|-|-|-|-|
-| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.902</b> | <b>0.752</b> | 4 | [factrueval-nmt.ipynb](examples_elmo/factrueval.ipynb)
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | 0.902 | 0.752 | 4 | [factrueval-nmt.ipynb](examples_elmo/factrueval.ipynb)
 
 
 ## 3. Installation, requirements, test
