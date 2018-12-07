@@ -67,6 +67,28 @@ We didn't search best parametres and obtained the following results for no more 
 |-|-|-|-|-|-|-|-|
 | [Atis](https://github.com/Microsoft/CNTK/tree/master/Examples/LanguageUnderstanding/ATIS/Data) | en | 0.913 | 0.820 | 0.888 | 65 | 17 | [atis-joint-nmt.ipynb](examples/atis-joint-nmt.ipynb)
 
+### Comprasion with ELMo model
+We tested `BertBiLSTMCRF`, `BertBiLSTMAttnCRF` and `BertBiLSTMAttnNMT` on russian dataset [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) with freezed `ElmoEmbedder`:
+
+#### Model `BertBiLSTMCRF`:
+
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
+|-|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.903</b> | <b>0.851</b> | 4 | [samples.ipynb](examples_elmo/samples.ipynb)
+
+#### Model `BertBiLSTMAttnCRF`:
+
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
+|-|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.899</b> | <b>0.819</b> | 4 | [factrueval.ipynb](examples_elmo/factrueval.ipynb)
+
+#### Model `BertBiLSTMAttnNMT`:
+
+| Dataset | Lang | IOB precision | Span precision | Total spans in test set | Notebook
+|-|-|-|-|-|-|
+| [FactRuEval](https://github.com/dialogue-evaluation/factRuEval-2016) | ru | <b>0.902</b> | <b>0.752</b> | 4 | [factrueval-nmt.ipynb](examples_elmo/factrueval.ipynb)
+
+
 ## 3. Installation, requirements, test
 
 This code was tested on Python 3.5+. The requirements are:
@@ -128,4 +150,6 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ```preds = learner.predict(dl)```
 
-For more detailed instructions see [samples.ipynb](examples/samples.ipynb)
+
+* For more detailed instructions of using BERT model see [samples.ipynb](examples/samples.ipynb).
+* For more detailed instructions of using ELMo model see [samples.ipynb](examples_elmo/samples.ipynb).

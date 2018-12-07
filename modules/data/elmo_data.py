@@ -150,7 +150,7 @@ class DataLoaderForTrain(DataLoader):
 
 
 def get_data(df, config, label2idx=None, oov='<oov>', pad='<pad>', cls2idx=None, is_cls=False,
-             word_lexicon=None, char_lexicon=None):
+             word_lexicon=None, char_lexicon=None, max_seq_len=424):
     if label2idx is None:
         label2idx = {pad: 0, '<bos>': 1, '<eos>': 2}
     features = []
@@ -167,12 +167,14 @@ def get_data(df, config, label2idx=None, oov='<oov>', pad='<pad>', cls2idx=None,
             idx, (text, labels, cls) = args
         else:
             idx, (text, labels) = args
-        labels = labels.split()
+        text = text.split()
+        text = text[:max_seq_len - 2]
+        labels = labels.split()[:max_seq_len - 2]
         labels = ['<bos>'] + labels + ['<eos>']
         if config['token_embedder']['name'].lower() == 'cnn':
-            tokens, text = read_list([text.split()], config['token_embedder']['max_characters_per_token'])
+            tokens, text = read_list([text], config['token_embedder']['max_characters_per_token'])
         else:
-            tokens, text = read_list([text.split()])
+            tokens, text = read_list([text])
         tokens, text = tokens[0], text[0]
         input_ids = None
         if word_lexicon is not None:
@@ -287,6 +289,119 @@ def get_elmo_data_loaders(train, valid, model_dir, config_name, batch_size, cuda
     if is_cls:
         return train_dl, valid_dl, label2idx, word_lexicon, char_lexicon, cls2idx
     return train_dl, valid_dl, label2idx, word_lexicon, char_lexicon
+
+
+class DataLoaderForPredict(DataLoader):
+
+    def __init__(self, data_set, w_pad_id, c_pad_id, max_chars, cuda, **kwargs):
+        super(DataLoaderForPredict, self).__init__(
+            dataset=data_set,
+            collate_fn=self.collate_fn,
+            **kwargs
+        )
+        self.w_pad_id = w_pad_id
+        self.c_pad_id = c_pad_id
+        self.l_pad_id = 0
+        self.max_chars = max_chars
+        self.cuda = cuda
+
+    def collate_fn(self, data):
+        batch_size = len(data)
+        lens = [len(x.labels) for x in data]
+        max_len = max(lens)
+        sorted_idx = np.argsort(lens)[::-1]
+        # Words prc
+        batch_w = None
+        if data[0].input_ids is not None:
+            batch_w = torch.LongTensor(batch_size, max_len).fill_(self.w_pad_id)
+            for i, idx in enumerate(sorted_idx):
+                x_i = data[idx].input_ids
+                for j, x_ij in enumerate(x_i):
+                    batch_w[i][j] = x_ij
+            if self.cuda:
+                batch_w = batch_w.cuda()
+        # Chars prc
+        batch_c = None
+        if data[0].char_ids is not None:
+            batch_c = torch.LongTensor(batch_size, max_len, self.max_chars).fill_(self.c_pad_id)
+            for i, idx in enumerate(sorted_idx):
+                x_i = data[idx].char_ids
+                for j, x_ij in enumerate(x_i):
+                    for k, c in enumerate(x_ij):
+                        batch_c[i][j][k] = c
+            if self.cuda:
+                batch_c = batch_c.cuda()
+
+        # Masks prc
+        masks = [torch.LongTensor(batch_size, max_len).fill_(0), [], []]
+
+        for i, idx in enumerate(sorted_idx):
+            x_i = data[idx].input_ids
+            for j in range(len(x_i)):
+                masks[0][i][j] = 1
+                if j + 1 < len(x_i):
+                    masks[1].append(i * max_len + j)
+                if j > 0:
+                    masks[2].append(i * max_len + j)
+
+        assert len(masks[1]) <= batch_size * max_len
+        assert len(masks[2]) <= batch_size * max_len
+
+        masks[1] = torch.LongTensor(masks[1])
+        masks[2] = torch.LongTensor(masks[2])
+        if self.cuda:
+            masks[0] = masks[0].cuda()
+            masks[1] = masks[1].cuda()
+            masks[2] = masks[2].cuda()
+
+        # Labels prc
+        batch_l = torch.LongTensor(batch_size, max_len).fill_(self.l_pad_id)
+        for i, idx in enumerate(sorted_idx):
+            x_i = data[idx].labels_ids
+            for j, x_ij in enumerate(x_i):
+                batch_l[i][j] = x_ij
+        sorted_idx = torch.LongTensor(list(sorted_idx))
+        if self.cuda:
+            batch_l = batch_l.cuda()
+            sorted_idx = sorted_idx.cuda()
+
+        if data[0].cls_idx is not None:
+            batch_cls = torch.LongTensor([data[idx].cls_idx for idx in sorted_idx])
+            if self.cuda:
+                batch_cls = batch_cls.cuda()
+            return batch_w, batch_c, masks, batch_cls, masks[0], batch_l
+        return (batch_w, batch_c, masks, masks[0], batch_l), sorted_idx
+
+
+def get_elmo_data_loader_for_predict(
+        valid, learner, oov='<oov>', pad='<pad>'):
+    valid = pd.read_csv(valid)
+    c_pad_id = None
+    char_lexicon = learner.data.char2idx
+    # For the model trained with character-based word encoder.
+    if char_lexicon is not None:
+        c_pad_id = char_lexicon.get(pad)
+    w_pad_id = None
+    word_lexicon = learner.data.word2idx
+    # For the model trained with word form word encoder.
+    if word_lexicon is not None:
+        w_pad_id = word_lexicon.get(pad)
+
+    max_chars = learner.data.train_dl.max_chars
+    cls2idx = learner.data.cls2idx
+    config = learner.model.encoder.embeddings.config
+    is_cls = learner.data.is_cls
+    cuda = learner.data.cuda
+    batch_size = learner.data.batch_size
+
+    # Get valid dataset
+    valid_f, label2idx = get_data(
+        valid, config, oov=oov, pad=pad, is_cls=is_cls, cls2idx=cls2idx,
+        word_lexicon=word_lexicon, char_lexicon=char_lexicon)
+    # Get valid dataloader
+    valid_dl = DataLoaderForPredict(
+        valid_f, w_pad_id, c_pad_id, max_chars, batch_size=batch_size, shuffle=False, cuda=cuda)
+    return valid_dl
 
 
 class ElmoNerData(object):

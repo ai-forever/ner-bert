@@ -21,12 +21,12 @@ def tokens2spans_(tokens_, labels_):
     idx_ = 0
     while idx_ < len(labels_):
         label = labels_[idx_]
-        if label in ["I_O", "B_O"]:
+        if label in ["I_O", "B_O", "O"]:
             res.append((tokens_[idx_], "O"))
             idx_ += 1
-        elif label == "[SEP]":
+        elif label == "[SEP]" or label == "<eos>":
             break
-        elif label == "[CLS]":
+        elif label == "[CLS]" or label == "<bos>":
             res.append((tokens_[idx_], label))
             idx_ += 1
         else:
@@ -36,7 +36,7 @@ def tokens2spans_(tokens_, labels_):
             except:
                 print(label, labels_[idx_].split("_"))
             idx_ += 1
-            while idx_ < len(labels_) and labels_[idx_] not in ["I_O", "B_O"] and labels_[idx_].split("_")[0]=="I":
+            while idx_ < len(labels_) and labels_[idx_] not in ["I_O", "B_O", "O"] and labels_[idx_].split("_")[0]=="I":
                 if span_label == labels_[idx_].split("_")[1]:
                     span.append(tokens_[idx_])
                     idx_ += 1

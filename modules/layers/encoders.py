@@ -77,7 +77,7 @@ class ElmoBiLSTMEncoder(nn.Module):
         pass
 
     def forward(self, batch):
-        input, input_mask = batch[0], batch[2][0]
+        input, input_mask = batch[0], batch[-2]
         output = self.embeddings(*batch)
         # output = self.dropout(output)
         lens = input_mask.sum(-1)

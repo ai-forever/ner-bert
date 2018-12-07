@@ -77,3 +77,19 @@ def get_bert_span_report(dl, preds, ignore_labels=["O"]):
         set_labels.update([y for x, y in spans_true[idx]])
     set_labels -= set(ignore_labels)
     return flat_classification_report([[y[1] for y in x] for x in spans_true], [[y[1] for y in x] for x in spans_pred], labels=list(set_labels), digits=3)
+
+
+def get_elmo_span_report(dl, preds, ignore_labels=["O"]):
+    tokens, labels = [x.tokens[1:-1] for x in dl.dataset], [p[1:-1] for p in preds]
+    spans_pred = tokens2spans(tokens, labels)
+    labels = [x.labels[1:-1] for x in dl.dataset]
+    spans_true = tokens2spans(tokens, labels)
+    set_labels = set()
+    for idx in range(len(spans_pred)):
+        while len(spans_pred[idx]) < len(spans_true[idx]):
+            spans_pred[idx].append(("", "O"))
+        while len(spans_pred[idx]) > len(spans_true[idx]):
+            spans_true[idx].append(("O", "O"))
+        set_labels.update([y for x, y in spans_true[idx]])
+    set_labels -= set(ignore_labels)
+    return flat_classification_report([[y[1] for y in x] for x in spans_true], [[y[1] for y in x] for x in spans_pred], labels=list(set_labels), digits=3)
