@@ -23,13 +23,14 @@ def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
             _ = torch.nn.utils.clip_grad_norm(model.parameters(), clip)
         optimizer.step()
         optimizer.zero_grad()
-        epoch_loss += loss
+        epoch_loss += loss.data.cpu().tolist()
         if lr_scheduler is not None:
             lr_scheduler.step()
+        # torch.cuda.empty_cache()
     if lr_scheduler is not None:
         logging.info("\nlr after epoch: {}".format(lr_scheduler.lr))
     logging.info("\nepoch {}, average train epoch loss={:.5}\n".format(
-        num_epoch, epoch_loss.data.cpu().tolist() / idx))
+        num_epoch, epoch_loss / idx))
 
 
 def transformed_result(preds, mask, id2label, target_all=None, pad_idx=0):

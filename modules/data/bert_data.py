@@ -3,6 +3,7 @@ from modules.data import tokenization
 import torch
 import pandas as pd
 import numpy as np
+from tqdm._tqdm_notebook import tqdm_notebook
 
 
 class InputFeatures(object):
@@ -124,8 +125,10 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
         zip_args = zip(df["1"].tolist(), df["0"].tolist(), df["2"].tolist())
     else:
         zip_args = zip(df["1"].tolist(), df["0"].tolist())
+    total = len(df["0"].tolist())
     cls = None
-    for args in enumerate(zip_args):
+    
+    for args in tqdm_notebook(enumerate(zip_args), total=total, leave=False):
         if is_cls:
             idx, (text, labels, cls) = args
         else:
