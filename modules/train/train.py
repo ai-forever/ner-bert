@@ -1,14 +1,19 @@
 from tqdm._tqdm_notebook import tqdm_notebook
+from tqdm import tqdm
 from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
 from modules.utils.plot_metrics import get_mean_max_metric
-from modules.train.clr import CyclicLR
+from modules.utils.utils import ipython_info
 from torch.optim import Adam
 from .optimization import BertAdam
 
 
 logging.basicConfig(level=logging.INFO)
+
+if __name__ == '__main__':
+    print(1)
+    tqdm_notebook = tqdm
 
 
 def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
@@ -132,6 +137,9 @@ def predict(dl, model, id2label, id2cls=None):
 class NerLearner(object):
     def __init__(self, model, data, best_model_path, lr=0.001, betas=list([0.8, 0.9]), clip=5,
                  verbose=True, sup_labels=None, t_total=-1, warmup=0.1, weight_decay=0.01):
+        if ipython_info():
+            global tqdm_notebook
+            tqdm_notebook = tqdm
         self.model = model
         self.optimizer = BertAdam(model, lr, t_total=t_total, b1=betas[0], b2=betas[1], max_grad_norm=clip)
         self.optimizer_defaults = dict(model=model, lr=lr, warmup=warmup, t_total=t_total, schedule='warmup_linear',

@@ -1,3 +1,9 @@
+import sys
+import __main__ as main
+
+
+def ipython_info():
+    return hasattr(main, '__file__')
 
 
 def bert_labels2tokens(dl, labels):

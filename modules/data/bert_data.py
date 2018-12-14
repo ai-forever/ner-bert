@@ -1,9 +1,11 @@
 from torch.utils.data import DataLoader
 from modules.data import tokenization
+from modules.utils.utils import ipython_info
 import torch
 import pandas as pd
 import numpy as np
 from tqdm._tqdm_notebook import tqdm_notebook
+from tqdm import tqdm
 
 
 class InputFeatures(object):
@@ -276,6 +278,9 @@ class BertNerData(object):
     @classmethod
     def create(cls,
                train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False, data_type="bert_cased", max_seq_len=424):
+        if ipython_info():
+            global tqdm_notebook
+            tqdm_notebook = tqdm
         if data_type == "bert_cased":
             do_lower_case = False
             fn = get_bert_data_loaders
