@@ -98,6 +98,34 @@ class BertBiLSTMAttnCRF(NerModel):
         return cls(encoder, decoder, use_cuda)
 
 
+class BertAttnCRF(NerModel):
+
+    def forward(self, batch):
+        output, _ = self.encoder(*batch)
+        return self.decoder(output, batch[-2])
+
+    def score(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder.score(output, batch[-2], batch[-1])
+
+    @classmethod
+    def create(cls,
+               label_size,
+               # BertEmbedder params
+               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
+               freeze=True,
+               # AttnCRFDecoder params
+               key_dim=64, val_dim=64, num_heads=3,
+               input_dropout=0.5,
+               # Global params
+               use_cuda=True):
+        encoder = BertEmbedder.create(
+            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
+        decoder = AttnCRFDecoder.create(
+            label_size, embedding_dim, input_dropout, key_dim, val_dim, num_heads)
+        return cls(encoder, decoder, use_cuda)
+
+
 class BertBiLSTMAttnNMT(NerModel):
     """Reused from https://github.com/DSKSD/RNN-for-Joint-NLU"""
 
