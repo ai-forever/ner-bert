@@ -134,7 +134,7 @@ All models are organized as `Encoder`-`Decoder`. `Encoder` is a freezed and <i>w
 
 ```from modules.train import NerLearner```
 
-```learner = NerLearner(model, data, best_model_path="/datadrive/models/factrueval/exp_final.cpt", base_lr=0.0001, lr_max=0.005, clip=5.0, use_lr_scheduler=True, sup_labels=data.id2label[5:])```
+```learner = NerLearner(model, data, best_model_path="/datadrive/models/factrueval/exp_final.cpt", lr=0.01, clip=1.0, sup_labels=data.id2label[5:], t_total=num_epochs * len(data.train_dl))```
 
 ### 4. Learn your NER model:
 

@@ -7,7 +7,7 @@ def bert_labels2tokens(dl, labels):
         label = []
         prev_idx = 0
         for origin_idx in f.tok_map:
-            if l[prev_idx] in ["I_O", "[SEP]"]:
+            if l[prev_idx] in ["I_O", "[SEP]", "[CLS]"]:
                 l[prev_idx] = "B_O"
             label.append(l[prev_idx])
             prev_idx = origin_idx

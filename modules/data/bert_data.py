@@ -50,10 +50,11 @@ class InputFeatures(object):
 
 class DataLoaderForTrain(DataLoader):
 
-    def __init__(self, data_set, cuda, **kwargs):
+    def __init__(self, data_set, shuffle, cuda, **kwargs):
         super(DataLoaderForTrain, self).__init__(
             dataset=data_set,
             collate_fn=self.collate_fn,
+            shuffle=shuffle,
             **kwargs
         )
         self.cuda = cuda
@@ -219,33 +220,34 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
     return features, label2idx
 
 
-def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False, do_lower_case=False):
+def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False, do_lower_case=False, max_seq_len=424):
     train = pd.read_csv(train)
     valid = pd.read_csv(valid)
 
     cls2idx = None
 
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=do_lower_case)
-    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls)
+    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls, max_seq_len=max_seq_len)
     if is_cls:
         label2idx, cls2idx = label2idx
     train_dl = DataLoaderForTrain(
         train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
     valid_f, label2idx = get_data(
-        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls)
+        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len)
     if is_cls:
         label2idx, cls2idx = label2idx
     valid_dl = DataLoaderForTrain(
-        valid_f, batch_size=batch_size, cuda=cuda)
+        valid_f, batch_size=batch_size, cuda=cuda, shuffle=False)
     if is_cls:
-        return train_dl, valid_dl, tokenizer, label2idx, cls2idx
-    return train_dl, valid_dl, tokenizer, label2idx
+        return train_dl, valid_dl, tokenizer, label2idx, max_seq_len, cls2idx
+    return train_dl, valid_dl, tokenizer, label2idx, max_seq_len
 
 
 def get_bert_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
     f, _ = get_data(df, tokenizer=learner.data.tokenizer,
-                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx, is_cls=learner.data.is_cls)
+                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx, is_cls=learner.data.is_cls,
+                    max_seq_len=learner.data.max_seq_len)
     dl = DataLoaderForPredict(
         f, batch_size=learner.data.batch_size, shuffle=False,
         cuda=True)
@@ -255,7 +257,7 @@ def get_bert_data_loader_for_predict(path, learner):
 
 class BertNerData(object):
 
-    def __init__(self, train_dl, valid_dl, tokenizer, label2idx,
+    def __init__(self, train_dl, valid_dl, tokenizer, label2idx, max_seq_len=424,
                  cls2idx=None, batch_size=16, cuda=True):
         self.train_dl = train_dl
         self.valid_dl = valid_dl
@@ -266,13 +268,14 @@ class BertNerData(object):
         self.cuda = cuda
         self.id2label = sorted(label2idx.keys(), key=lambda x: label2idx[x])
         self.is_cls = False
+        self.max_seq_len = max_seq_len
         if cls2idx is not None:
             self.is_cls = True
             self.id2cls = sorted(cls2idx.keys(), key=lambda x: cls2idx[x])
 
     @classmethod
     def create(cls,
-               train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False, data_type="bert_cased"):
+               train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False, data_type="bert_cased", max_seq_len=424):
         if data_type == "bert_cased":
             do_lower_case = False
             fn = get_bert_data_loaders
@@ -282,5 +285,5 @@ class BertNerData(object):
         else:
             raise NotImplementedError("No requested mode :(.")
         return cls(*fn(
-            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case),
+            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case, max_seq_len),
                    batch_size=batch_size, cuda=cuda)

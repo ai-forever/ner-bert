@@ -5,6 +5,7 @@ import torch
 from modules.utils.plot_metrics import get_mean_max_metric
 from modules.train.clr import CyclicLR
 from torch.optim import Adam
+from .optimization import BertAdam
 
 
 logging.basicConfig(level=logging.INFO)
@@ -129,11 +130,13 @@ def predict(dl, model, id2label, id2cls=None):
 
 
 class NerLearner(object):
-    def __init__(self, model, data, best_model_path, base_lr=0.001, lr_max=0.01, betas=list([0.8, 0.9]), clip=0.25,
-                 verbose=True, use_lr_scheduler=True, sup_labels=None):
+    def __init__(self, model, data, best_model_path, lr=0.001, betas=list([0.8, 0.9]), clip=5,
+                 verbose=True, sup_labels=None, t_total=-1, warmup=0.1, weight_decay=0.01):
         self.model = model
-        self.base_lr = base_lr
-        self.optimizer = Adam(model.parameters(), lr=base_lr, betas=betas)
+        self.optimizer = BertAdam(model, lr, t_total=t_total, b1=betas[0], b2=betas[1], max_grad_norm=clip)
+        self.optimizer_defaults = dict(model=model, lr=lr, warmup=warmup, t_total=t_total, schedule='warmup_linear',
+                 b1=betas[0], b2=betas[1], e=1e-6, weight_decay=0.01,
+                 max_grad_norm=clip)
         self.data = data
         if sup_labels is None:
             sup_labels = data.id2label[1:]
@@ -145,18 +148,12 @@ class NerLearner(object):
         self.epoch = 0
         self.clip = clip
         self.best_target_metric = 0.
-        if use_lr_scheduler:
-            if verbose:
-                logging.info("Use lr OneCycleScheduler...")
-            self.lr_scheduler = CyclicLR(
-                self.optimizer, base_lr=base_lr, max_lr=lr_max, step_size=4 * len(data.train_dl))
-        else:
-            if verbose:
-                logging.info("Don't use lr scheduler...")
-            self.lr_scheduler = None
+        self.lr_scheduler = None
 
     def fit(self, epochs=100, resume_history=True, target_metric="f1"):
         if not resume_history:
+            self.optimizer_defaults["t_total"] = epochs * len(self.data.train_dl)
+            self.optimizer = BertAdam(**self.optimizer_defaults)
             self.history = []
             self.cls_history = []
             self.epoch = 0
@@ -165,8 +162,7 @@ class NerLearner(object):
             logging.info("Resuming train... Current epoch {}.".format(self.epoch))
         try:
             for _ in range(epochs):
-                if resume_history:
-                    self.epoch += 1
+                self.epoch += 1
                 self.fit_one_cycle(self.epoch, target_metric)
         except KeyboardInterrupt:
             pass
