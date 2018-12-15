@@ -1,19 +1,15 @@
 from tqdm._tqdm_notebook import tqdm_notebook
 from tqdm import tqdm
+from modules.utils.utils import ipython_info
 from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
 from modules.utils.plot_metrics import get_mean_max_metric
-from modules.utils.utils import ipython_info
 from torch.optim import Adam
 from .optimization import BertAdam
 
 
 logging.basicConfig(level=logging.INFO)
-
-if __name__ == '__main__':
-    print(1)
-    tqdm_notebook = tqdm
 
 
 def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):

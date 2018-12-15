@@ -5,6 +5,9 @@ from torch.utils.data import DataLoader
 import os
 import torch
 import pandas as pd
+from modules.utils.utils import ipython_info
+from tqdm._tqdm_notebook import tqdm_notebook
+from tqdm import tqdm
 
 
 def read_list(sents, max_chars=None):
@@ -162,7 +165,8 @@ def get_data(df, config, label2idx=None, oov='<oov>', pad='<pad>', cls2idx=None,
     else:
         zip_args = zip(df["1"].tolist(), df["0"].tolist())
     cls = None
-    for args in enumerate(zip_args):
+    total = len(df["0"].tolist())
+    for args in tqdm_notebook(enumerate(zip_args), total=total, leave=False):
         if is_cls:
             idx, (text, labels, cls) = args
         else:
@@ -431,6 +435,9 @@ class ElmoNerData(object):
     def create(cls,
                train_path, valid_path, model_dir, config_name, batch_size=16, cuda=True, is_cls=False,
                oov='<oov>', pad='<pad>'):
+        if ipython_info():
+            global tqdm_notebook
+            tqdm_notebook = tqdm
         fn = get_elmo_data_loaders
         return cls(*fn(
             train_path, valid_path, model_dir, config_name, batch_size, cuda, is_cls, oov, pad),
