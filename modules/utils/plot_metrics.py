@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from matplotlib import pyplot as plt
-from .utils import tokens2spans, bert_labels2tokens
+from .utils import tokens2spans, bert_labels2tokens, voting_choicer, first_choicer
 from sklearn_crfsuite.metrics import flat_classification_report
 
 
@@ -63,10 +63,10 @@ def get_mean_max_metric(history, metric_="f1", return_idx=False):
     return res
 
 
-def get_bert_span_report(dl, preds, ignore_labels=["O"]):
-    tokens, labels = bert_labels2tokens(dl, preds)
+def get_bert_span_report(dl, preds, ignore_labels=["O"], fn=first_choicer):
+    tokens, labels = bert_labels2tokens(dl, preds, fn)
     spans_pred = tokens2spans(tokens, labels)
-    tokens, labels = bert_labels2tokens(dl, [x.labels for x in dl.dataset])
+    tokens, labels = bert_labels2tokens(dl, [x.labels for x in dl.dataset], fn)
     spans_true = tokens2spans(tokens, labels)
     set_labels = set()
     for idx in range(len(spans_pred)):

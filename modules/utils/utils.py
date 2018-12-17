@@ -1,24 +1,45 @@
 import sys
 import __main__ as main
+from collections import Counter
 
 
 def ipython_info():
     return hasattr(main, '__file__')
 
 
-def bert_labels2tokens(dl, labels):
+def voting_choicer(tok_map, labels):
+    label = []
+    prev_idx = 0
+    for origin_idx in tok_map:
+
+        vote_labels = Counter(["I_" + l.split("_")[1] if l not in ["[SEP]", "[CLS]"] else "B_O" for l in labels[prev_idx:origin_idx]])
+        # vote_labels = Counter(c)
+        label.append(sorted(list(vote_labels), key=lambda x: vote_labels[x])[-1])
+        prev_idx = origin_idx
+        if origin_idx < 0:
+            break
+    return label
+
+
+def first_choicer(tok_map, labels):
+    label = []
+    prev_idx = 0
+    for origin_idx in tok_map:
+        if labels[prev_idx] in ["I_O", "[SEP]", "[CLS]"]:
+            labels[prev_idx] = "B_O"
+        label.append(labels[prev_idx])
+        prev_idx = origin_idx
+        if origin_idx < 0:
+            break
+    return label
+
+
+def bert_labels2tokens(dl, labels, fn=voting_choicer):
     res_tokens = []
     res_labels = []
     for f, l in zip(dl.dataset, labels):
-        label = []
-        prev_idx = 0
-        for origin_idx in f.tok_map:
-            if l[prev_idx] in ["I_O", "[SEP]", "[CLS]"]:
-                l[prev_idx] = "B_O"
-            label.append(l[prev_idx])
-            prev_idx = origin_idx
-            if origin_idx < 0:
-                break
+        label = fn(f.tok_map, l)
+            
         res_tokens.append(f.tokens[1:-1])
         res_labels.append(label[1:])
     return res_tokens, res_labels
