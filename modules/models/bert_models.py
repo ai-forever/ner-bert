@@ -59,10 +59,15 @@ class BertBiLSTMCRF(NerModel):
                # CRFDecoder params
                input_dropout=0.5,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = CRFDecoder.create(label_size, encoder.output_dim, input_dropout)
         return cls(encoder, decoder, use_cuda)
 
@@ -89,10 +94,15 @@ class BertBiLSTMAttnCRF(NerModel):
                key_dim=64, val_dim=64, num_heads=3,
                input_dropout=0.5,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnCRFDecoder.create(
             label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
@@ -149,10 +159,15 @@ class BertBiLSTMAttnNMT(NerModel):
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
                input_dropout=0.5, pad_idx=0,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTDecoder.create(
             label_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
@@ -181,10 +196,15 @@ class BertBiLSTMAttnNMTCRF(NerModel):
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
                input_dropout=0.5, pad_idx=0,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTCRFDecoder.create(
             label_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
@@ -213,10 +233,15 @@ class BertBiLSTMAttnCRFJoint(NerModel):
                key_dim=64, val_dim=64, num_heads=3,
                input_dropout=0.5,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnCRFJointDecoder.create(
             label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads)
         return cls(encoder, decoder, use_cuda)
@@ -245,10 +270,15 @@ class BertBiLSTMAttnNMTJoint(NerModel):
                dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
                input_dropout=0.5, pad_idx=0,
                # Global params
-               use_cuda=True):
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = NMTJointDecoder.create(
             label_size, intent_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)

@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from tqdm._tqdm_notebook import tqdm_notebook
 from tqdm import tqdm
+import json
 
 
 class InputFeatures(object):
@@ -16,11 +17,13 @@ class InputFeatures(object):
             # Bert data
             bert_tokens, input_ids, input_mask, input_type_ids,
             # Origin data
-            tokens, labels, labels_ids, labels_mask, tok_map, cls=None, cls_idx=None):
+            tokens, labels, labels_ids, labels_mask, tok_map, cls=None, cls_idx=None, meta=None):
         """
         Data has the following structure.
         data[0]: list, tokens ids
         data[1]: list, tokens mask
+        data[2]: list, tokens type ids (for bert)
+        data[3]: list, tokens meta info (if meta is not None)
         ...
         data[-2]: list, labels mask
         data[-1]: list, labels ids
@@ -34,6 +37,10 @@ class InputFeatures(object):
         self.data.append(input_mask)
         self.input_type_ids = input_type_ids
         self.data.append(input_type_ids)
+        # Meta data
+        self.meta = meta
+        if meta is not None:
+            self.data.append(meta)
         # Origin data
         self.tokens = tokens
         self.labels = labels
@@ -63,21 +70,25 @@ class DataLoaderForTrain(DataLoader):
 
     def collate_fn(self, data):
         res = []
-        token_ml = max(map(lambda x: sum(x.data[1]), data))
-        label_ml = max(map(lambda x: sum(x.data[-2]), data))
-        sorted_idx = np.argsort(list(map(lambda x: sum(x.data[1]), data)))[::-1]
+        token_ml = max(map(lambda x_: sum(x_.data[1]), data))
+        label_ml = max(map(lambda x_: sum(x_.data[-2]), data))
+        sorted_idx = np.argsort(list(map(lambda x_: sum(x_.data[1]), data)))[::-1]
         for idx in sorted_idx:
             f = data[idx]
             example = []
-            for x in f.data[:-2]:
+            for idx_, x in enumerate(f.data[:-2]):
                 if isinstance(x, list):
                     x = x[:token_ml]
                 example.append(x)
             example.append(f.data[-2][:label_ml])
             example.append(f.data[-1][:label_ml])
             res.append(example)
-        res = list(zip(*res))
-        res = [torch.LongTensor(x) for x in res]
+        res = []
+        for idx, x in enumerate(zip(*res)):
+            if data[0].meta is not None and idx == 3:
+                res.append(torch.FloatTensor(x))
+            else:
+                res.append(torch.LongTensor(x))
         if self.cuda:
             res = [t.cuda() for t in res]
         return res
@@ -95,9 +106,9 @@ class DataLoaderForPredict(DataLoader):
 
     def collate_fn(self, data):
         res = []
-        token_ml = max(map(lambda x: sum(x.data[1]), data))
-        label_ml = max(map(lambda x: sum(x.data[-2]), data))
-        sorted_idx = np.argsort(list(map(lambda x: sum(x.data[1]), data)))[::-1]
+        token_ml = max(map(lambda x_: sum(x_.data[1]), data))
+        label_ml = max(map(lambda x_: sum(x_.data[-2]), data))
+        sorted_idx = np.argsort(list(map(lambda x_: sum(x_.data[1]), data)))[::-1]
         for idx in sorted_idx:
             f = data[idx]
             example = []
@@ -108,8 +119,12 @@ class DataLoaderForPredict(DataLoader):
             example.append(f.data[-2][:label_ml])
             example.append(f.data[-1][:label_ml])
             res.append(example)
-        res = list(zip(*res))
-        res = [torch.LongTensor(x) for x in res]
+        res = []
+        for idx, x in enumerate(zip(*res)):
+            if data[0].meta is not None and idx == 3:
+                res.append(torch.FloatTensor(x))
+            else:
+                res.append(torch.LongTensor(x))
         sorted_idx = torch.LongTensor(list(sorted_idx))
         if self.cuda:
             res = [t.cuda() for t in res]
@@ -117,26 +132,42 @@ class DataLoaderForPredict(DataLoader):
         return res, sorted_idx
 
 
-def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None, is_cls=False):
+def get_data(
+        df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None,
+        is_cls=False, is_meta=False):
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
     features = []
+    all_args = []
     if is_cls:
         # Use joint model
         if cls2idx is None:
             cls2idx = dict()
-        zip_args = zip(df["1"].tolist(), df["0"].tolist(), df["2"].tolist())
+        all_args.extend([df["1"].tolist(), df["0"].tolist(), df["2"].tolist()])
     else:
-        zip_args = zip(df["1"].tolist(), df["0"].tolist())
+        all_args.extend([df["1"].tolist(), df["0"].tolist()])
+    if is_meta:
+        all_args.append(df["3"].tolist())
     total = len(df["0"].tolist())
     cls = None
-    
-    for args in tqdm_notebook(enumerate(zip_args), total=total, leave=False):
+    meta = None
+    for args in tqdm_notebook(enumerate(zip(*all_args)), total=total, leave=False):
         if is_cls:
-            idx, (text, labels, cls) = args
+            if is_meta:
+                idx, (text, labels, cls, meta) = args
+            else:
+                idx, (text, labels, cls) = args
         else:
-            idx, (text, labels) = args
+            if is_meta:
+                idx, (text, labels, meta) = args
+            else:
+                idx, (text, labels) = args
+
         tok_map = []
+        meta_tokens = []
+        if is_meta:
+            meta = json.loads(meta)
+            meta_tokens.append([0] * len(meta[0]))
         bert_tokens = []
         bert_labels = []
         bert_tokens.append("[CLS]")
@@ -147,7 +178,7 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
         pad_idx = label2idx[pad]
         assert len(orig_tokens) == len(labels)
         prev_label = ""
-        for orig_token, label in zip(orig_tokens, labels):
+        for idx_, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
             prefix = "B_"
             if label != "O":
                 label = label.split("_")[1]
@@ -161,12 +192,15 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
                 break
 
+            if is_meta:
+                meta_tokens.extend(meta[idx_] * len(cur_tokens))
             bert_tokens.extend(cur_tokens)
             bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
         bert_tokens.append("[SEP]")
         bert_labels.append("[SEP]")
-
+        if is_meta:
+            meta_tokens.append([0] * len(meta[0]))
         orig_tokens = ["[CLS]"] + orig_tokens + ["[SEP]"]
 
         input_ids = tokenizer.convert_tokens_to_ids(bert_tokens)
@@ -187,6 +221,8 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             labels_ids.append(pad_idx)
             labels_mask.append(0)
             tok_map.append(-1)
+            if is_meta:
+                meta_tokens.append([0] * len(meta[0]))
         # assert len(input_ids) == len(bert_labels_ids)
         input_type_ids = [0] * len(input_ids)
         # For joint model
@@ -195,7 +231,8 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             if cls not in cls2idx:
                 cls2idx[cls] = len(cls2idx)
             cls_idx = cls2idx[cls]
-
+        if is_meta:
+            meta = meta_tokens
         features.append(InputFeatures(
             # Bert data
             bert_tokens=bert_tokens,
@@ -210,7 +247,9 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
             tok_map=tok_map,
             # Joint data
             cls=cls,
-            cls_idx=cls_idx
+            cls_idx=cls_idx,
+            # Meta data
+            meta=meta
         ))
         assert len(input_ids) == len(input_mask)
         assert len(input_ids) == len(input_type_ids)
@@ -222,20 +261,21 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
     return features, label2idx
 
 
-def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False, do_lower_case=False, max_seq_len=424):
+def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False,
+                          do_lower_case=False, max_seq_len=424, is_meta=False):
     train = pd.read_csv(train)
     valid = pd.read_csv(valid)
 
     cls2idx = None
 
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=do_lower_case)
-    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls, max_seq_len=max_seq_len)
+    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
     if is_cls:
         label2idx, cls2idx = label2idx
     train_dl = DataLoaderForTrain(
         train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
     valid_f, label2idx = get_data(
-        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len)
+        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
     if is_cls:
         label2idx, cls2idx = label2idx
     valid_dl = DataLoaderForTrain(
@@ -248,8 +288,9 @@ def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is
 def get_bert_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
     f, _ = get_data(df, tokenizer=learner.data.tokenizer,
-                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx, is_cls=learner.data.is_cls,
-                    max_seq_len=learner.data.max_seq_len)
+                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx,
+                    is_cls=learner.data.is_cls,
+                    max_seq_len=learner.data.max_seq_len, is_meta=learner.data.is_meta)
     dl = DataLoaderForPredict(
         f, batch_size=learner.data.batch_size, shuffle=False,
         cuda=True)
@@ -260,13 +301,14 @@ def get_bert_data_loader_for_predict(path, learner):
 class BertNerData(object):
 
     def __init__(self, train_dl, valid_dl, tokenizer, label2idx, max_seq_len=424,
-                 cls2idx=None, batch_size=16, cuda=True):
+                 cls2idx=None, batch_size=16, cuda=True, is_meta=False):
         self.train_dl = train_dl
         self.valid_dl = valid_dl
         self.tokenizer = tokenizer
         self.label2idx = label2idx
         self.cls2idx = cls2idx
         self.batch_size = batch_size
+        self.is_meta = is_meta
         self.cuda = cuda
         self.id2label = sorted(label2idx.keys(), key=lambda x: label2idx[x])
         self.is_cls = False
@@ -277,7 +319,8 @@ class BertNerData(object):
 
     @classmethod
     def create(cls,
-               train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False, data_type="bert_cased", max_seq_len=424):
+               train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False,
+               data_type="bert_cased", max_seq_len=424, is_meta=False):
         if ipython_info():
             global tqdm_notebook
             tqdm_notebook = tqdm
@@ -290,5 +333,5 @@ class BertNerData(object):
         else:
             raise NotImplementedError("No requested mode :(.")
         return cls(*fn(
-            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case, max_seq_len),
+            train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case, max_seq_len, is_meta),
                    batch_size=batch_size, cuda=cuda)
