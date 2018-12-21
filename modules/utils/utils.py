@@ -14,7 +14,9 @@ def voting_choicer(tok_map, labels):
 
         vote_labels = Counter(["I_" + l.split("_")[1] if l not in ["[SEP]", "[CLS]"] else "B_O" for l in labels[prev_idx:origin_idx]])
         # vote_labels = Counter(c)
-        label.append(sorted(list(vote_labels), key=lambda x: vote_labels[x])[-1])
+        l = sorted(list(vote_labels), key=lambda x: vote_labels[x])
+        if len(l):
+            label.append(l[-1])
         prev_idx = origin_idx
         if origin_idx < 0:
             break

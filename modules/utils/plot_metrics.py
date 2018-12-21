@@ -105,7 +105,8 @@ def analyze_bert_errors(dl, labels, fn=voting_choicer):
         label_r = fn(f.tok_map, rl)
         prev_idx = 0
         errors_ = []
-        assert len(label_r) == len(f.tokens) - 1
+        # if len(label_r) > 1:
+        # assert len(label_r) == len(f.tokens) - 1
         for idx, (l, rl, t) in enumerate(zip(label, label_r, f.tokens)):
             if l != rl:
                 errors_.append({"token: ": t,

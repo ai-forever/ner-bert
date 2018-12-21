@@ -145,7 +145,7 @@ def get_data(df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2id
         orig_tokens.extend(text.split())
         labels = labels.split()
         pad_idx = label2idx[pad]
-        # assert len(orig_tokens) == len(labels)
+        assert len(orig_tokens) == len(labels)
         prev_label = ""
         for orig_token, label in zip(orig_tokens, labels):
             prefix = "B_"
