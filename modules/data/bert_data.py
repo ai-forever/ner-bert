@@ -83,15 +83,15 @@ class DataLoaderForTrain(DataLoader):
             example.append(f.data[-2][:label_ml])
             example.append(f.data[-1][:label_ml])
             res.append(example)
-        res = []
+        res_ = []
         for idx, x in enumerate(zip(*res)):
             if data[0].meta is not None and idx == 3:
-                res.append(torch.FloatTensor(x))
+                res_.append(torch.FloatTensor(x))
             else:
-                res.append(torch.LongTensor(x))
+                res_.append(torch.LongTensor(x))
         if self.cuda:
-            res = [t.cuda() for t in res]
-        return res
+            res_ = [t.cuda() for t in res_]
+        return res_
 
 
 class DataLoaderForPredict(DataLoader):
@@ -119,17 +119,17 @@ class DataLoaderForPredict(DataLoader):
             example.append(f.data[-2][:label_ml])
             example.append(f.data[-1][:label_ml])
             res.append(example)
-        res = []
+        res_ = []
         for idx, x in enumerate(zip(*res)):
             if data[0].meta is not None and idx == 3:
-                res.append(torch.FloatTensor(x))
+                res_.append(torch.FloatTensor(x))
             else:
-                res.append(torch.LongTensor(x))
+                res_.append(torch.LongTensor(x))
         sorted_idx = torch.LongTensor(list(sorted_idx))
         if self.cuda:
-            res = [t.cuda() for t in res]
+            res_ = [t.cuda() for t in res_]
             sorted_idx = sorted_idx.cuda()
-        return res, sorted_idx
+        return res_, sorted_idx
 
 
 def get_data(
@@ -193,7 +193,7 @@ def get_data(
                 break
 
             if is_meta:
-                meta_tokens.extend(meta[idx_] * len(cur_tokens))
+                meta_tokens.extend([meta[idx_]] * len(cur_tokens))
             bert_tokens.extend(cur_tokens)
             bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
@@ -334,4 +334,4 @@ class BertNerData(object):
             raise NotImplementedError("No requested mode :(.")
         return cls(*fn(
             train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case, max_seq_len, is_meta),
-                   batch_size=batch_size, cuda=cuda)
+                   batch_size=batch_size, cuda=cuda, is_meta=is_meta)

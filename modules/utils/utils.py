@@ -99,4 +99,4 @@ def encode_position(pos, emb_dim=10):
     position_enc[0::2] = np.sin(position_enc[0::2])
     # apply cos on 1st,3rd,5th...emb_dim
     position_enc[1::2] = np.cos(position_enc[1::2])
-    return list(position_enc)
+    return list(position_enc.reshape(-1))
