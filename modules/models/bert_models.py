@@ -283,3 +283,39 @@ class BertBiLSTMAttnNMTJoint(NerModel):
             label_size, intent_size, dec_embedding_dim, dec_hidden_dim,
             dec_rnn_layers, input_dropout, pad_idx, use_cuda)
         return cls(encoder, decoder, use_cuda)
+
+
+class BertBiLSTMAttnNCRFJoint(NerModel):
+
+    def forward(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder(output, batch[-2])
+
+    def score(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder.score(output, batch[-2], batch[-1], batch[-3])
+
+    @classmethod
+    def create(cls,
+               label_size, intent_size,
+               # BertEmbedder params
+               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
+               freeze=True,
+               # BertBiLSTMEncoder params
+               enc_hidden_dim=128, rnn_layers=1,
+               # AttnCRFDecoder params
+               key_dim=64, val_dim=64, num_heads=3,
+               input_dropout=0.5,
+               # Global params
+               use_cuda=True,
+               # Meta
+               meta_dim=None):
+        embedder = BertEmbedder.create(
+            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
+        decoder = AttnNCRFJointDecoder.create(
+            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda)
+        return cls(encoder, decoder, use_cuda)

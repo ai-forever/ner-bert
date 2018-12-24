@@ -26,10 +26,11 @@ def log_sum_exp(vec, m_size):
     max_score = torch.gather(vec, 1, idx.view(-1, 1, m_size)).view(-1, 1, m_size)  # B * M
     return max_score.view(-1, m_size) + torch.log(torch.sum(torch.exp(vec - max_score.expand_as(vec)), 1)).view(-1, m_size)  # B * M
 
+
 class NCRF(nn.Module):
 
     def __init__(self, tagset_size, gpu):
-        super(CRF, self).__init__()
+        super(NCRF, self).__init__()
         print("build CRF...")
         self.gpu = gpu
         # Matrix of transition parameters.  Entry i,j is the score of transitioning *to* i *from* j.
@@ -100,7 +101,6 @@ class NCRF(nn.Module):
         cur_partition = log_sum_exp(cur_values, tag_size)
         final_partition = cur_partition[:, STOP_TAG]
         return final_partition.sum(), scores
-
 
     def _viterbi_decode(self, feats, mask):
         """
@@ -196,12 +196,9 @@ class NCRF(nn.Module):
         decode_idx = decode_idx.transpose(1,0)
         return path_score, decode_idx
 
-
-
     def forward(self, feats):
         path_score, best_path = self._viterbi_decode(feats)
         return path_score, best_path
-
 
     def _score_sentence(self, scores, mask, tags):
         """
