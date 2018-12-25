@@ -309,7 +309,9 @@ class BertBiLSTMAttnNCRFJoint(NerModel):
                # Global params
                use_cuda=True,
                # Meta
-               meta_dim=None):
+               meta_dim=None,
+               # NCRFpp
+               nbest=8):
         embedder = BertEmbedder.create(
             bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
         if meta_dim is None:
@@ -317,5 +319,5 @@ class BertBiLSTMAttnNCRFJoint(NerModel):
         else:
             encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnNCRFJointDecoder.create(
-            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda)
+            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda, nbest=nbest)
         return cls(encoder, decoder, use_cuda)

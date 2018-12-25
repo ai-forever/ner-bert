@@ -589,16 +589,25 @@ class AttnNCRFJointDecoder(nn.Module):
         self.eval()
         logits, intent_output = self.forward_model(inputs)
         _, preds = self.crf._viterbi_decode_nbest(logits, labels_mask, self.nbest)
+        # print(preds.shape)
+        preds = preds[:, :, 0]
+        """for idx in range(len(preds)):
+            for idx_ in range(len(preds[0])):
+                if preds[idx][idx_] > 0:
+                    preds[idx][idx_] -= 1
+                else:
+                    raise"""
+        # print(preds)
         self.train()
         return preds, intent_output.argmax(-1)
 
     def score(self, inputs, labels_mask, labels, cls_ids):
         logits, intent_output = self.forward_model(inputs)
-        crf_score = self.crf.neg_log_likelihood_loss(logits, labels_mask, labels) / logits.shape[0]
+        crf_score = self.crf.neg_log_likelihood_loss(logits, labels_mask, labels) / logits.size(0)
         return crf_score + self.intent_loss(intent_output, cls_ids)
 
     @classmethod
     def create(cls, label_size, input_dim, intent_size, input_dropout=0.5, key_dim=64,
                val_dim=64, num_heads=3, use_cuda=True, nbest=8):
-        return cls(NCRF(label_size + 2, use_cuda), label_size, input_dim, intent_size, input_dropout,
+        return cls(NCRF(label_size, use_cuda), label_size + 2, input_dim, intent_size, input_dropout,
                    key_dim, val_dim, num_heads, nbest)

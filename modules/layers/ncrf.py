@@ -3,6 +3,14 @@
 # @Date:   2017-12-04 23:19:38
 # @Last Modified by:   Jie Yang,     Contact: jieynlp@gmail.com
 # @Last Modified time: 2018-05-16 16:57:39
+# https://github.com/Das-Boot/NCRFpp
+# @inproceedings{yang2018ncrf,  
+#  title={NCRF++: An Open-source Neural Sequence Labeling Toolkit},  
+#  author={Yang, Jie and Zhang, Yue},  
+#  booktitle={Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics},
+#  Url = {https://arxiv.org/pdf/1806.05626.pdf},
+#  year={2018}  
+# }
 from __future__ import print_function
 import torch
 import torch.autograd as autograd
@@ -90,6 +98,7 @@ class NCRF(nn.Module):
             mask_idx = mask[idx, :].view(batch_size, 1).expand(batch_size, tag_size)
 
             ## effective updated partition part, only keep the partition value of mask value = 1
+            mask_idx = mask_idx.byte()
             masked_cur_partition = cur_partition.masked_select(mask_idx)
             ## let mask_idx broadcastable, to disable warning
             mask_idx = mask_idx.contiguous().view(batch_size, tag_size, 1)
@@ -240,6 +249,7 @@ class NCRF(nn.Module):
         ### need convert tags id to search from 400 positions of scores
         tg_energy = torch.gather(scores.view(seq_len, batch_size, -1), 2, new_tags).view(seq_len, batch_size)  # seq_len * bat_size
         ## mask transpose to (seq_len, batch_size)
+        mask = mask.byte()
         tg_energy = tg_energy.masked_select(mask.transpose(1,0))
 
         # ## calculate the score from START_TAG to first label
