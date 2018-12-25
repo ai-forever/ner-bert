@@ -611,3 +611,48 @@ class AttnNCRFJointDecoder(nn.Module):
                val_dim=64, num_heads=3, use_cuda=True, nbest=8):
         return cls(NCRF(label_size, use_cuda), label_size + 2, input_dim, intent_size, input_dropout,
                    key_dim, val_dim, num_heads, nbest)
+
+
+class AttnNCRFDecoder(nn.Module):
+    def __init__(self,
+                 crf, label_size, input_dim, input_dropout=0.5,
+                 key_dim=64, val_dim=64, num_heads=3, nbest=8):
+        super(AttnNCRFDecoder, self).__init__()
+        self.input_dim = input_dim
+        self.attn = MultiHeadAttention(key_dim, val_dim, input_dim, num_heads, input_dropout)
+        self.linear = Linears(in_features=input_dim,
+                              out_features=label_size,
+                              hiddens=[input_dim // 2])
+        self.nbest = nbest
+        self.crf = crf
+        self.label_size = label_size
+
+    def forward_model(self, inputs, labels_mask=None):
+        batch_size, seq_len, input_dim = inputs.size()
+        inputs, _ = self.attn(inputs, inputs, inputs, labels_mask)
+
+        output = inputs.contiguous().view(-1, self.input_dim)
+        # Fully-connected layer
+        output = self.linear.forward(output)
+        output = output.view(batch_size, seq_len, self.label_size)
+        return output
+
+    def forward(self, inputs, labels_mask):
+        self.eval()
+        logits = self.forward_model(inputs)
+        _, preds = self.crf._viterbi_decode_nbest(logits, labels_mask, self.nbest)
+        # print(preds.shape)
+        preds = preds[:, :, 0]
+        self.train()
+        return preds
+
+    def score(self, inputs, labels_mask, labels):
+        logits = self.forward_model(inputs)
+        crf_score = self.crf.neg_log_likelihood_loss(logits, labels_mask, labels) / logits.size(0)
+        return crf_score
+
+    @classmethod
+    def create(cls, label_size, input_dim, input_dropout=0.5, key_dim=64,
+               val_dim=64, num_heads=3, use_cuda=True, nbest=8):
+        return cls(NCRF(label_size, use_cuda), label_size + 2, input_dim, input_dropout,
+                   key_dim, val_dim, num_heads, nbest)

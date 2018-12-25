@@ -303,7 +303,7 @@ class BertBiLSTMAttnNCRFJoint(NerModel):
                freeze=True,
                # BertBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
-               # AttnCRFDecoder params
+               # AttnNCRFDecoder params
                key_dim=64, val_dim=64, num_heads=3,
                input_dropout=0.5,
                # Global params
@@ -320,4 +320,42 @@ class BertBiLSTMAttnNCRFJoint(NerModel):
             encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnNCRFJointDecoder.create(
             label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda, nbest=nbest)
+        return cls(encoder, decoder, use_cuda)
+
+
+class BertBiLSTMAttnNCRF(NerModel):
+
+    def forward(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder(output, batch[-2])
+
+    def score(self, batch):
+        output, _ = self.encoder(batch)
+        return self.decoder.score(output, batch[-2], batch[-1])
+
+    @classmethod
+    def create(cls,
+               label_size,
+               # BertEmbedder params
+               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
+               freeze=True,
+               # BertBiLSTMEncoder params
+               enc_hidden_dim=128, rnn_layers=1,
+               # AttnNCRFDecoder params
+               key_dim=64, val_dim=64, num_heads=3,
+               input_dropout=0.5,
+               # Global params
+               use_cuda=True,
+               # Meta
+               meta_dim=None,
+               # NCRFpp
+               nbest=8):
+        embedder = BertEmbedder.create(
+            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
+        if meta_dim is None:
+            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
+        else:
+            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
+        decoder = AttnNCRFDecoder.create(
+            label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads, nbest)
         return cls(encoder, decoder, use_cuda)
