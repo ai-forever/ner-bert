@@ -135,6 +135,7 @@ class DataLoaderForPredict(DataLoader):
 def get_data(
         df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None,
         is_cls=False, is_meta=False):
+    tqdm_notebook = tqdm
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
     features = []
@@ -173,8 +174,8 @@ def get_data(
         bert_tokens.append("[CLS]")
         bert_labels.append("[CLS]")
         orig_tokens = []
-        orig_tokens.extend(text.split())
-        labels = labels.split()
+        orig_tokens.extend(str(text).split())
+        labels = str(labels).split()
         pad_idx = label2idx[pad]
         assert len(orig_tokens) == len(labels)
         prev_label = ""

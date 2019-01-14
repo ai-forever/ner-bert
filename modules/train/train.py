@@ -16,7 +16,8 @@ def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
     model.train()
     epoch_loss = 0
     idx = 0
-    for batch in tqdm_notebook(dl, total=len(dl), leave=False):
+    pr = tqdm_notebook(dl, total=len(dl), leave=False)
+    for batch in pr:
         idx += 1
         model.zero_grad()
         loss = model.score(batch)
@@ -25,7 +26,9 @@ def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
             _ = torch.nn.utils.clip_grad_norm(model.parameters(), clip)
         optimizer.step()
         optimizer.zero_grad()
-        epoch_loss += loss.data.cpu().tolist()
+        loss = loss.data.cpu().tolist()
+        epoch_loss += loss
+        pr.set_description("train loss: {}".format(epoch_loss / idx))
         if lr_scheduler is not None:
             lr_scheduler.step()
         # torch.cuda.empty_cache()
@@ -133,7 +136,7 @@ def predict(dl, model, id2label, id2cls=None):
 class NerLearner(object):
     def __init__(self, model, data, best_model_path, lr=0.001, betas=list([0.8, 0.9]), clip=5,
                  verbose=True, sup_labels=None, t_total=-1, warmup=0.1, weight_decay=0.01):
-        if ipython_info():
+        if ipython_info() or True:
             global tqdm_notebook
             tqdm_notebook = tqdm
         self.model = model
