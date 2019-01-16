@@ -13,7 +13,8 @@ def voting_choicer(tok_map, labels):
     for origin_idx in tok_map:
 
         vote_labels = Counter(
-            ["I_" + l.split("_")[1] if l not in ["[SEP]", "[CLS]"] else "I_O" for l in labels[prev_idx:origin_idx]])
+            # if l not in ["[SEP]", "[CLS]"] else "I_O"
+            ["I_" + l.split("_")[1] if l not in ["[CLS]", "[SEP]"] else "I_O" for l in labels[prev_idx:origin_idx]])
         # vote_labels = Counter(c)
         lb = sorted(list(vote_labels), key=lambda x: vote_labels[x])
         if len(lb):
@@ -21,6 +22,8 @@ def voting_choicer(tok_map, labels):
         prev_idx = origin_idx
         if origin_idx < 0:
             break
+    assert "[SEP]" not in label
+    
     return label
 
 
@@ -28,12 +31,14 @@ def first_choicer(tok_map, labels):
     label = []
     prev_idx = 0
     for origin_idx in tok_map:
-        if labels[prev_idx] in ["I_O", "[SEP]", "[CLS]"]:
-            labels[prev_idx] = "B_O"
-        label.append(labels[prev_idx])
+        l = labels[prev_idx]
+        if l in ["[CLS]", "[SEP]"]:
+            l = "I_O"
+        label.append(l)
         prev_idx = origin_idx
         if origin_idx < 0:
             break
+    assert "[SEP]" not in label
     return label
 
 

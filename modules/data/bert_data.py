@@ -180,23 +180,22 @@ def get_data(
         assert len(orig_tokens) == len(labels)
         prev_label = ""
         for idx_, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
-            prefix = "B_"
+            # Fix BIO to IO as BERT proposed https://arxiv.org/pdf/1810.04805.pdf
+            prefix = "I_"
             if label != "O":
                 label = label.split("_")[1]
-                if label == prev_label:
-                    prefix = "I_"
                 prev_label = label
             else:
                 prev_label = label
-            tok_map.append(len(bert_tokens))
+            
             cur_tokens = tokenizer.tokenize(orig_token)
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
                 break
-
+            tok_map.append(len(bert_tokens))
             if is_meta:
                 meta_tokens.extend([meta[idx_]] * len(cur_tokens))
             bert_tokens.extend(cur_tokens)
-            bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
+            bert_label = [prefix + label] + ["X"] * (len(cur_tokens) - 1) # ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
         bert_tokens.append("[SEP]")
         bert_labels.append("[SEP]")
