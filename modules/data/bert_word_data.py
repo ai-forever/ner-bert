@@ -1,135 +1,9 @@
-from torch.utils.data import DataLoader
 from modules.data import tokenization
 from modules.utils.utils import ipython_info
-import torch
 import pandas as pd
-import numpy as np
-from tqdm._tqdm_notebook import tqdm_notebook
 from tqdm import tqdm
 import json
-
-
-class InputFeatures(object):
-    """A single set of features of data."""
-
-    def __init__(
-            self,
-            # Bert data
-            bert_tokens, input_ids, input_mask, input_type_ids,
-            # Origin data
-            tokens, labels, labels_ids, labels_mask, tok_map, cls=None, cls_idx=None, meta=None):
-        """
-        Data has the following structure.
-        data[0]: list, tokens ids
-        data[1]: list, tokens mask
-        data[2]: list, tokens type ids (for bert)
-        data[3]: list, tokens meta info (if meta is not None)
-        ...
-        data[-2]: list, labels mask
-        data[-1]: list, labels ids
-        """
-        self.data = []
-        # Bert data
-        self.bert_tokens = bert_tokens
-        self.input_ids = input_ids
-        self.data.append(input_ids)
-        self.input_mask = input_mask
-        self.data.append(input_mask)
-        self.input_type_ids = input_type_ids
-        self.data.append(input_type_ids)
-        # Meta data
-        self.meta = meta
-        if meta is not None:
-            self.data.append(meta)
-        # Origin data
-        self.tokens = tokens
-        self.labels = labels
-        # Used for joint model
-        self.cls = cls
-        self.cls_idx = cls_idx
-        if cls is not None:
-            self.data.append(cls_idx)
-        # Labels data
-        self.labels_mask = labels_mask
-        self.data.append(labels_mask)
-        self.labels_ids = labels_ids
-        self.data.append(labels_ids)
-        self.tok_map = tok_map
-
-
-class DataLoaderForTrain(DataLoader):
-
-    def __init__(self, data_set, shuffle, cuda, **kwargs):
-        super(DataLoaderForTrain, self).__init__(
-            dataset=data_set,
-            collate_fn=self.collate_fn,
-            shuffle=shuffle,
-            **kwargs
-        )
-        self.cuda = cuda
-
-    def collate_fn(self, data):
-        res = []
-        token_ml = max(map(lambda x_: sum(x_.data[1]), data))
-        label_ml = max(map(lambda x_: sum(x_.data[-2]), data))
-        sorted_idx = np.argsort(list(map(lambda x_: sum(x_.data[1]), data)))[::-1]
-        for idx in sorted_idx:
-            f = data[idx]
-            example = []
-            for idx_, x in enumerate(f.data[:-2]):
-                if isinstance(x, list):
-                    x = x[:token_ml]
-                example.append(x)
-            example.append(f.data[-2][:label_ml])
-            example.append(f.data[-1][:label_ml])
-            res.append(example)
-        res_ = []
-        for idx, x in enumerate(zip(*res)):
-            if data[0].meta is not None and idx == 3:
-                res_.append(torch.FloatTensor(x))
-            else:
-                res_.append(torch.LongTensor(x))
-        if self.cuda:
-            res_ = [t.cuda() for t in res_]
-        return res_
-
-
-class DataLoaderForPredict(DataLoader):
-
-    def __init__(self, data_set, cuda, **kwargs):
-        super(DataLoaderForPredict, self).__init__(
-            dataset=data_set,
-            collate_fn=self.collate_fn,
-            **kwargs
-        )
-        self.cuda = cuda
-
-    def collate_fn(self, data):
-        res = []
-        token_ml = max(map(lambda x_: sum(x_.data[1]), data))
-        label_ml = max(map(lambda x_: sum(x_.data[-2]), data))
-        sorted_idx = np.argsort(list(map(lambda x_: sum(x_.data[1]), data)))[::-1]
-        for idx in sorted_idx:
-            f = data[idx]
-            example = []
-            for x in f.data[:-2]:
-                if isinstance(x, list):
-                    x = x[:token_ml]
-                example.append(x)
-            example.append(f.data[-2][:label_ml])
-            example.append(f.data[-1][:label_ml])
-            res.append(example)
-        res_ = []
-        for idx, x in enumerate(zip(*res)):
-            if data[0].meta is not None and idx == 3:
-                res_.append(torch.FloatTensor(x))
-            else:
-                res_.append(torch.LongTensor(x))
-        sorted_idx = torch.LongTensor(list(sorted_idx))
-        if self.cuda:
-            res_ = [t.cuda() for t in res_]
-            sorted_idx = sorted_idx.cuda()
-        return res_, sorted_idx
+from .bert_data import InputFeatures, DataLoaderForTrain, DataLoaderForPredict
 
 
 def get_data(
@@ -204,7 +78,7 @@ def get_data(
         orig_tokens = ["[CLS]"] + orig_tokens + ["[SEP]"]
 
         input_ids = tokenizer.convert_tokens_to_ids(bert_tokens)
-        labels = bert_labels
+        # labels = bert_labels
         for l in labels:
             if l not in label2idx:
                 label2idx[l] = len(label2idx)
