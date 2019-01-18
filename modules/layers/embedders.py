@@ -10,10 +10,15 @@ from elmoformanylangs.modules.embedding_layer import EmbeddingLayer
 from elmoformanylangs.frontend import Model
 
 
+# TODO: add from_config to other embedders
 class BertEmbedder(nn.Module):
 
-    def __init__(self, model, embedding_dim=768, use_cuda=True, bert_mode="weighted"):
+    def __init__(self, model, bert_config_file, init_checkpoint_pt,
+                 freeze=True, embedding_dim=768, use_cuda=True, bert_mode="weighted",):
         super(BertEmbedder, self).__init__()
+        self.bert_config_file = bert_config_file
+        self.init_checkpoint_pt = init_checkpoint_pt
+        self.is_freeze = freeze
         self.embedding_dim = embedding_dim
         self.model = model
         self.use_cuda = use_cuda
@@ -26,6 +31,24 @@ class BertEmbedder(nn.Module):
             self.cuda()
 
         self.init_weights()
+
+    def get_config(self):
+        config = {
+            "name": "BertEmbedder",
+            "params": {
+                "bert_config_file": self.bert_config_file,
+                "init_checkpoint_pt": self.init_checkpoint_pt,
+                "freeze": self.is_freeze,
+                "embedding_dim": self.embedding_dim,
+                "use_cuda": self.use_cuda,
+                "bert_mode": self.bert_mode
+            }
+        }
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls.create(**config)
 
     def init_weights(self):
         if self.bert_mode == "weighted":
@@ -86,7 +109,8 @@ class BertEmbedder(nn.Module):
             device = torch.device("cpu")
         model.load_state_dict(torch.load(init_checkpoint_pt, map_location=map_location))
         model = model.to(device)
-        model = cls(model=model, embedding_dim=embedding_dim, use_cuda=use_cuda, bert_mode=bert_mode)
+        model = cls(model=model, embedding_dim=embedding_dim, use_cuda=use_cuda, bert_mode=bert_mode,
+                    bert_config_file=bert_config_file, init_checkpoint_pt=init_checkpoint_pt, freeze=freeze)
         if freeze:
             model.freeze()
         return model

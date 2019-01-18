@@ -1,8 +1,10 @@
 from torch.utils.data import DataLoader
 from modules.data import tokenization
+from modules.utils.utils import ipython_info
 import torch
 import pandas as pd
 import numpy as np
+from tqdm._tqdm_notebook import tqdm_notebook
 from tqdm import tqdm
 import json
 
@@ -133,7 +135,6 @@ class DataLoaderForPredict(DataLoader):
 def get_data(
         df, tokenizer, label2idx=None, max_seq_len=424, pad="<pad>", cls2idx=None,
         is_cls=False, is_meta=False):
-    tqdm_notebook = tqdm
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
     features = []
@@ -172,29 +173,29 @@ def get_data(
         bert_tokens.append("[CLS]")
         bert_labels.append("[CLS]")
         orig_tokens = []
-        orig_tokens.extend(str(text).split())
-        labels = str(labels).split()
+        orig_tokens.extend(text.split())
+        labels = labels.split()
         pad_idx = label2idx[pad]
         assert len(orig_tokens) == len(labels)
         prev_label = ""
         for idx_, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
-            # Fix BIO to IO as BERT proposed https://arxiv.org/pdf/1810.04805.pdf
-            prefix = "I_"
+            prefix = "B_"
             if label != "O":
                 label = label.split("_")[1]
+                if label == prev_label:
+                    prefix = "I_"
                 prev_label = label
             else:
                 prev_label = label
-            
+            tok_map.append(len(bert_tokens))
             cur_tokens = tokenizer.tokenize(orig_token)
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
                 break
-            tok_map.append(len(bert_tokens))
+
             if is_meta:
                 meta_tokens.extend([meta[idx_]] * len(cur_tokens))
             bert_tokens.extend(cur_tokens)
-            # ["I_" + label] * (len(cur_tokens) - 1)
-            bert_label = [prefix + label] + ["X"] * (len(cur_tokens) - 1)
+            bert_label = [prefix + label] + ["I_" + label] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
         bert_tokens.append("[SEP]")
         bert_labels.append("[SEP]")
@@ -261,13 +262,14 @@ def get_data(
 
 
 def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False,
-                          do_lower_case=False, max_seq_len=424, is_meta=False, label2idx=None, cls2idx=None):
+                          do_lower_case=False, max_seq_len=424, is_meta=False):
     train = pd.read_csv(train)
     valid = pd.read_csv(valid)
 
+    cls2idx = None
+
     tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=do_lower_case)
-    train_f, label2idx = get_data(
-        train, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
+    train_f, label2idx = get_data(train, tokenizer, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
     if is_cls:
         label2idx, cls2idx = label2idx
     train_dl = DataLoaderForTrain(
@@ -298,14 +300,8 @@ def get_bert_data_loader_for_predict(path, learner):
 
 class BertNerData(object):
 
-    def __init__(self, train_path, valid_path, vocab_file, data_type,
-                 train_dl=None, valid_dl=None, tokenizer=None,
-                 label2idx=None, max_seq_len=424,
+    def __init__(self, train_dl, valid_dl, tokenizer, label2idx, max_seq_len=424,
                  cls2idx=None, batch_size=16, cuda=True, is_meta=False):
-        self.train_path = train_path
-        self.valid_path = valid_path
-        self.data_type = data_type
-        self.vocab_file = vocab_file
         self.train_dl = train_dl
         self.valid_dl = valid_dl
         self.tokenizer = tokenizer
@@ -322,43 +318,12 @@ class BertNerData(object):
             self.id2cls = sorted(cls2idx.keys(), key=lambda x: cls2idx[x])
 
     @classmethod
-    def from_config(cls, config):
-        if config["data_type"] == "bert_cased":
-            do_lower_case = False
-            fn = get_bert_data_loaders
-        elif config["data_type"] == "bert_uncased":
-            do_lower_case = True
-            fn = get_bert_data_loaders
-        else:
-            raise NotImplementedError("No requested mode :(.")
-        return cls(
-            config["train_path"], config["valid_path"], config["vocab_file"], config["data_type"],
-            *fn(config["train_path"], config["valid_path"], config["vocab_file"], config["batch_size"],
-                config["cuda"], config["is_cls"], do_lower_case, config["max_seq_len"], config["is_meta"],
-                label2idx=config["label2idx"], cls2idx=config["cls2idx"]),
-            batch_size=config["batch_size"], cuda=config["cuda"], is_meta=config["is_meta"])
-
-    def get_config(self):
-        config = {
-            "train_path": self.train_path,
-            "valid_path": self.valid_path,
-            "vocab_file": self.vocab_file,
-            "data_type": self.data_type,
-            "max_seq_len": self.max_seq_len,
-            "batch_size": self.batch_size,
-            "cuda": self.cuda,
-            "is_meta": self.is_meta,
-            "label2idx": self.label2idx,
-            "cls2idx": self.cls2idx
-        }
-        return config
-        # with open(config_path, "w") as f:
-        #    json.dump(config, f)
-
-    @classmethod
     def create(cls,
                train_path, valid_path, vocab_file, batch_size=16, cuda=True, is_cls=False,
                data_type="bert_cased", max_seq_len=424, is_meta=False):
+        if ipython_info():
+            global tqdm_notebook
+            tqdm_notebook = tqdm
         if data_type == "bert_cased":
             do_lower_case = False
             fn = get_bert_data_loaders
@@ -367,6 +332,6 @@ class BertNerData(object):
             fn = get_bert_data_loaders
         else:
             raise NotImplementedError("No requested mode :(.")
-        return cls(train_path, valid_path, vocab_file, data_type, *fn(
+        return cls(*fn(
             train_path, valid_path, vocab_file, batch_size, cuda, is_cls, do_lower_case, max_seq_len, is_meta),
                    batch_size=batch_size, cuda=cuda, is_meta=is_meta)

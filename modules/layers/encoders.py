@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+from .embedders import BertEmbedder
 
 
 class BertBiLSTMEncoder(nn.Module):
@@ -19,6 +20,26 @@ class BertBiLSTMEncoder(nn.Module):
             self.cuda()
         self.init_weights()
         self.output_dim = hidden_dim
+
+    @classmethod
+    def from_config(cls, config):
+        if config["embeddings"]["name"] == "BertEmbedder":
+            embeddings = BertEmbedder.create(**config["embeddings"]["params"])
+        else:
+            raise NotImplemented("form_config is implemented only for BertEmbedder now :(")
+        return cls.create(embeddings, config["hidden_dim"], config["rnn_layers"], config["use_cuda"])
+
+    def get_config(self):
+        config = {
+            "name": "BertBiLSTMEncoder",
+            "params": {
+                "hidden_dim": self.hidden_dim,
+                "rnn_layers": self.rnn_layers,
+                "use_cuda": self.use_cuda,
+                "embeddings": self.embeddings.get_config()
+            }
+        }
+        return config
 
     def init_weights(self):
         # for p in self.lstm.parameters():

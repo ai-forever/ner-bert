@@ -2,6 +2,8 @@ from modules.layers.encoders import *
 from modules.layers.decoders import *
 from modules.layers.embedders import *
 import abc
+import sys
+from .released_models import released_models
 
 
 class NerModel(nn.Module, metaclass=abc.ABCMeta):
@@ -36,6 +38,35 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
                     num = num * s
                 pp += num
         return pp
+
+    def get_config(self):
+        try:
+            config = {
+                "name": self.__class__.__name__,
+                "params": {
+                    "encoder": self.encoder.get_config(),
+                    "decoder": self.decoder.get_config(),
+                    "use_cuda": self.use_cuda
+                }
+            }
+        except AttributeError:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        except NotImplemented:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        name = config["name"]
+        config = config["params"]
+        # TODO: release all models (now only for BertBiLSTMNCRF)
+        if name not in released_models:
+            raise NotImplemented("from_config is implemented only for {} model :(".format(config["name"]))
+        encoder = released_models[name]["encoder"].from_config(**config["encoder"]["params"])
+        decoder = released_models[name]["decoder"].from_config(**config["decoder"]["params"])
+        return cls(encoder, decoder, config["use_cuda"])
 
 
 class BertBiLSTMCRF(NerModel):
@@ -319,7 +350,8 @@ class BertBiLSTMAttnNCRFJoint(NerModel):
         else:
             encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
         decoder = AttnNCRFJointDecoder.create(
-            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda, nbest=nbest)
+            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda,
+            nbest=nbest)
         return cls(encoder, decoder, use_cuda)
 
 

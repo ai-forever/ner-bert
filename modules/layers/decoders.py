@@ -695,6 +695,23 @@ class NCRFDecoder(nn.Module):
         crf_score = self.crf.neg_log_likelihood_loss(logits, labels_mask, labels) / logits.size(0)
         return crf_score
 
+    def get_config(self):
+        config = {
+            "name": "NCRFDecoder",
+            "params": {
+                "label_size": self.label_size,
+                "input_dim": self.input_dim,
+                "input_dropout": self.dropout.p,
+                "use_cuda": self.use_cuda,
+                "nbest": self.nbest
+            }
+        }
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls.create(**config)
+
     @classmethod
     def create(cls, label_size, input_dim, input_dropout=0.5, use_cuda=True, nbest=8):
         return cls(NCRF(label_size, use_cuda), label_size + 2, input_dim, input_dropout, nbest)
