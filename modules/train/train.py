@@ -195,10 +195,10 @@ class NerLearner(object):
             json.dump(self.config, file)
 
     @classmethod
-    def from_config(cls, path):
+    def from_config(cls, path, for_train=True):
         with open(path, "r") as file:
             config = json.load(file)
-        data = BertNerData.from_config(config["data"])
+        data = BertNerData.from_config(config["data"], for_train)
         name = config["model"]["name"]
         # TODO: release all models (now only for BertBiLSTMNCRF)
         if name not in released_models:
