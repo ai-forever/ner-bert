@@ -5,15 +5,15 @@ from .embedders import BertEmbedder
 
 class BertBiLSTMEncoder(nn.Module):
 
-    @property
-    def config(self):
+    # @property
+    def get_config(self):
         config = {
             "name": "BertBiLSTMEncoder",
             "params": {
                 "hidden_dim": self.hidden_dim,
                 "rnn_layers": self.rnn_layers,
                 "use_cuda": self.use_cuda,
-                "embeddings": self.embeddings.config
+                "embeddings": self.embeddings.get_config()
             }
         }
         return config

@@ -13,8 +13,8 @@ from elmoformanylangs.frontend import Model
 # TODO: add from_config to other embedders
 class BertEmbedder(nn.Module):
 
-    @property
-    def config(self):
+    # @property
+    def get_config(self):
         config = {
             "name": "BertEmbedder",
             "params": {

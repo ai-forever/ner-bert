@@ -8,25 +8,6 @@ from .released_models import released_models
 
 class NerModel(nn.Module, metaclass=abc.ABCMeta):
 
-    @property
-    def config(self):
-        try:
-            config = {
-                "name": self.__class__.__name__,
-                "params": {
-                    "encoder": self.encoder.config,
-                    "decoder": self.decoder.config(),
-                    "use_cuda": self.use_cuda
-                }
-            }
-        except AttributeError:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        except NotImplemented:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        return config
-
     """Base class for all Models"""
     def __init__(self, encoder, decoder, use_cuda=True):
         super(NerModel, self).__init__()
@@ -58,6 +39,24 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
                     num = num * s
                 pp += num
         return pp
+
+    def get_config(self):
+        try:
+            config = {
+                "name": self.__class__.__name__,
+                "params": {
+                    "encoder": self.encoder.get_config(),
+                    "decoder": self.decoder.get_config(),
+                    "use_cuda": self.use_cuda
+                }
+            }
+        except AttributeError:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        except NotImplemented:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        return config
 
     @classmethod
     def from_config(cls, config):

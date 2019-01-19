@@ -662,8 +662,7 @@ class AttnNCRFDecoder(nn.Module):
 class NCRFDecoder(nn.Module):
 
     # TODO: TRY TO FIX THIS SHIT (get attribute error)
-    # @property WTF!!!
-    def config(self):
+    def get_config(self):
         config = {
             "name": "NCRFDecoder",
             "params": {
