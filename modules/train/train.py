@@ -190,6 +190,10 @@ class NerLearner(object):
         self.best_target_metric = 0.
         self.lr_scheduler = None
 
+    def save_config(self, path):
+        with open(path, "w") as file:
+            json.dump(self.config, file)
+
     @classmethod
     def from_config(cls, path):
         with open(path, "r") as file:
