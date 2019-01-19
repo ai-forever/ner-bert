@@ -331,12 +331,17 @@ class BertNerData(object):
             fn = get_bert_data_loaders
         else:
             raise NotImplementedError("No requested mode :(.")
+        if config["train_path"] and config["valid_path"]:
+            fn_res = fn(config["train_path"], config["valid_path"], config["vocab_file"], config["batch_size"],
+                        config["cuda"], config["is_cls"], do_lower_case, config["max_seq_len"], config["is_meta"],
+                        label2idx=config["label2idx"], cls2idx=config["cls2idx"])
+        else:
+            fn_res = (None, None, tokenization.FullTokenizer(
+                vocab_file=config["vocab_file"], do_lower_case=do_lower_case), config["label2idx"],
+                      config["max_seq_len"], config["cls2idx"])
         return cls(
             config["train_path"], config["valid_path"], config["vocab_file"], config["data_type"],
-            *fn(config["train_path"], config["valid_path"], config["vocab_file"], config["batch_size"],
-                config["cuda"], config["is_cls"], do_lower_case, config["max_seq_len"], config["is_meta"],
-                label2idx=config["label2idx"], cls2idx=config["cls2idx"]),
-            batch_size=config["batch_size"], cuda=config["cuda"], is_meta=config["is_meta"])
+            *fn_res, batch_size=config["batch_size"], cuda=config["cuda"], is_meta=config["is_meta"])
 
     def get_config(self):
         config = {
