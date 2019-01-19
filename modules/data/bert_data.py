@@ -338,8 +338,9 @@ class BertNerData(object):
             self.is_cls = True
             self.id2cls = sorted(cls2idx.keys(), key=lambda x: cls2idx[x])
 
+    # TODO: write docs
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config, for_train=True):
         if config["data_type"] == "bert_cased":
             do_lower_case = False
             fn = get_bert_data_loaders
@@ -348,7 +349,7 @@ class BertNerData(object):
             fn = get_bert_data_loaders
         else:
             raise NotImplementedError("No requested mode :(.")
-        if config["train_path"] and config["valid_path"]:
+        if config["train_path"] and config["valid_path"] and for_train:
             fn_res = fn(config["train_path"], config["valid_path"], config["vocab_file"], config["batch_size"],
                         config["cuda"], config["is_cls"], do_lower_case, config["max_seq_len"], config["is_meta"],
                         label2idx=config["label2idx"], cls2idx=config["cls2idx"])
