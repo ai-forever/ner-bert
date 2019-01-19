@@ -346,6 +346,7 @@ class BertNerData(object):
             "data_type": self.data_type,
             "max_seq_len": self.max_seq_len,
             "batch_size": self.batch_size,
+            "is_cls": self.is_cls,
             "cuda": self.cuda,
             "is_meta": self.is_meta,
             "label2idx": self.label2idx,
