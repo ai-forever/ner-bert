@@ -7,6 +7,26 @@ from .released_models import released_models
 
 
 class NerModel(nn.Module, metaclass=abc.ABCMeta):
+
+    @property
+    def config(self):
+        try:
+            config = {
+                "name": self.__class__.__name__,
+                "params": {
+                    "encoder": self.encoder.config,
+                    "decoder": self.decoder.config,
+                    "use_cuda": self.use_cuda
+                }
+            }
+        except AttributeError:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        except NotImplemented:
+            config = {}
+            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
+        return config
+
     """Base class for all Models"""
     def __init__(self, encoder, decoder, use_cuda=True):
         super(NerModel, self).__init__()
@@ -39,31 +59,8 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
                 pp += num
         return pp
 
-    def get_config(self):
-        try:
-            config = {
-                "name": self.__class__.__name__,
-                "params": {
-                    "encoder": self.encoder.get_config(),
-                    "decoder": self.decoder.get_config(),
-                    "use_cuda": self.use_cuda
-                }
-            }
-        except AttributeError:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        except NotImplemented:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        return config
-
     @classmethod
     def from_config(cls, config):
-        name = config["name"]
-        config = config["params"]
-        # TODO: release all models (now only for BertBiLSTMNCRF)
-        if name not in released_models:
-            raise NotImplemented("from_config is implemented only for {} model :(".format(config["name"]))
         encoder = released_models[name]["encoder"].from_config(**config["encoder"]["params"])
         decoder = released_models[name]["decoder"].from_config(**config["decoder"]["params"])
         return cls(encoder, decoder, config["use_cuda"])

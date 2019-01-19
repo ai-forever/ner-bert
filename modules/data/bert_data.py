@@ -298,6 +298,23 @@ def get_bert_data_loader_for_predict(path, learner):
 
 class BertNerData(object):
 
+    @property
+    def config(self):
+        config = {
+            "train_path": self.train_path,
+            "valid_path": self.valid_path,
+            "vocab_file": self.vocab_file,
+            "data_type": self.data_type,
+            "max_seq_len": self.max_seq_len,
+            "batch_size": self.batch_size,
+            "is_cls": self.is_cls,
+            "cuda": self.cuda,
+            "is_meta": self.is_meta,
+            "label2idx": self.label2idx,
+            "cls2idx": self.cls2idx
+        }
+        return config
+
     def __init__(self, train_path, valid_path, vocab_file, data_type,
                  train_dl=None, valid_dl=None, tokenizer=None,
                  label2idx=None, max_seq_len=424,
@@ -343,21 +360,6 @@ class BertNerData(object):
             config["train_path"], config["valid_path"], config["vocab_file"], config["data_type"],
             *fn_res, batch_size=config["batch_size"], cuda=config["cuda"], is_meta=config["is_meta"])
 
-    def get_config(self):
-        config = {
-            "train_path": self.train_path,
-            "valid_path": self.valid_path,
-            "vocab_file": self.vocab_file,
-            "data_type": self.data_type,
-            "max_seq_len": self.max_seq_len,
-            "batch_size": self.batch_size,
-            "is_cls": self.is_cls,
-            "cuda": self.cuda,
-            "is_meta": self.is_meta,
-            "label2idx": self.label2idx,
-            "cls2idx": self.cls2idx
-        }
-        return config
         # with open(config_path, "w") as f:
         #    json.dump(config, f)
 

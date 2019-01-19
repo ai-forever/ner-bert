@@ -5,6 +5,19 @@ from .embedders import BertEmbedder
 
 class BertBiLSTMEncoder(nn.Module):
 
+    @property
+    def config(self):
+        config = {
+            "name": "BertBiLSTMEncoder",
+            "params": {
+                "hidden_dim": self.hidden_dim,
+                "rnn_layers": self.rnn_layers,
+                "use_cuda": self.use_cuda,
+                "embeddings": self.embeddings.config
+            }
+        }
+        return config
+
     def __init__(self, embeddings,
                  hidden_dim=128, rnn_layers=1, use_cuda=True):
         super(BertBiLSTMEncoder, self).__init__()
@@ -28,18 +41,6 @@ class BertBiLSTMEncoder(nn.Module):
         else:
             raise NotImplemented("form_config is implemented only for BertEmbedder now :(")
         return cls.create(embeddings, config["hidden_dim"], config["rnn_layers"], config["use_cuda"])
-
-    def get_config(self):
-        config = {
-            "name": "BertBiLSTMEncoder",
-            "params": {
-                "hidden_dim": self.hidden_dim,
-                "rnn_layers": self.rnn_layers,
-                "use_cuda": self.use_cuda,
-                "embeddings": self.embeddings.get_config()
-            }
-        }
-        return config
 
     def init_weights(self):
         # for p in self.lstm.parameters():

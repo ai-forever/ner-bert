@@ -548,7 +548,8 @@ class NMTJointDecoder(nn.Module):
         scores, intent_score = self.forward_model(encoder_outputs, input_mask)
         batch_size = encoder_outputs.shape[0]
         len_ = encoder_outputs.shape[1]
-        return self.loss(scores.view(batch_size * len_, -1), labels_ids.view(-1)) + self.intent_loss(intent_score, cls_ids)
+        return self.loss(scores.view(batch_size * len_, -1), labels_ids.view(-1)) + self.intent_loss(
+            intent_score, cls_ids)
 
     @classmethod
     def create(cls, label_size, intent_size,
@@ -659,6 +660,21 @@ class AttnNCRFDecoder(nn.Module):
 
     
 class NCRFDecoder(nn.Module):
+
+    @property
+    def config(self):
+        config = {
+            "name": "NCRFDecoder",
+            "params": {
+                "label_size": self.label_size,
+                "input_dim": self.input_dim,
+                "input_dropout": self.dropout.p,
+                "use_cuda": self.use_cuda,
+                "nbest": self.nbest
+            }
+        }
+        return config
+
     def __init__(self,
                  crf, label_size, input_dim, input_dropout=0.5, nbest=8):
         super(NCRFDecoder, self).__init__()
@@ -694,19 +710,6 @@ class NCRFDecoder(nn.Module):
         logits = self.forward_model(inputs)
         crf_score = self.crf.neg_log_likelihood_loss(logits, labels_mask, labels) / logits.size(0)
         return crf_score
-
-    def get_config(self):
-        config = {
-            "name": "NCRFDecoder",
-            "params": {
-                "label_size": self.label_size,
-                "input_dim": self.input_dim,
-                "input_dropout": self.dropout.p,
-                "use_cuda": self.use_cuda,
-                "nbest": self.nbest
-            }
-        }
-        return config
 
     @classmethod
     def from_config(cls, config):

@@ -1,12 +1,12 @@
-from tqdm._tqdm_notebook import tqdm_notebook
 from tqdm import tqdm
-from modules.utils.utils import ipython_info
 from sklearn_crfsuite.metrics import flat_classification_report
 import logging
 import torch
 from modules.utils.plot_metrics import get_mean_max_metric
-from torch.optim import Adam
 from .optimization import BertAdam
+import json
+from modules.data.bert_data import BertNerData
+from modules.models.released_models import released_models
 
 
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +16,7 @@ def train_step(dl, model, optimizer, lr_scheduler=None, clip=None, num_epoch=1):
     model.train()
     epoch_loss = 0
     idx = 0
-    pr = tqdm_notebook(dl, total=len(dl), leave=False)
+    pr = tqdm(dl, total=len(dl), leave=False)
     for batch in pr:
         idx += 1
         model.zero_grad()
@@ -87,7 +87,7 @@ def validate_step(dl, model, id2label, sup_labels, id2cls=None):
     idx = 0
     preds_cpu, targets_cpu = [], []
     preds_cpu_cls, targets_cpu_cls = [], []
-    for batch in tqdm_notebook(dl, total=len(dl), leave=False):
+    for batch in tqdm(dl, total=len(dl), leave=False):
         idx += 1
         labels_mask, labels_ids = batch[-2:]
         preds = model.forward(batch)
@@ -111,7 +111,7 @@ def predict(dl, model, id2label, id2cls=None):
     idx = 0
     preds_cpu = []
     preds_cpu_cls = []
-    for batch, sorted_idx in tqdm_notebook(dl, total=len(dl), leave=False):
+    for batch, sorted_idx in tqdm(dl, total=len(dl), leave=False):
         idx += 1
         labels_mask, labels_ids = batch[-2:]
         preds = model.forward(batch)
@@ -134,17 +134,50 @@ def predict(dl, model, id2label, id2cls=None):
 
 
 class NerLearner(object):
-    def __init__(self, model, data, best_model_path, lr=0.001, betas=list([0.8, 0.9]), clip=5,
-                 verbose=True, sup_labels=None, t_total=-1, warmup=0.1, weight_decay=0.01):
-        if ipython_info() or True:
-            global tqdm_notebook
-            tqdm_notebook = tqdm
+
+    @property
+    def config(self):
+        config = {
+            "data": self.data.config,
+            "model": self.model.config,
+            "learner": {
+                "best_model_path": self.best_model_path,
+                "lr": self.lr,
+                "betas": self.betas,
+                "clip": self.clip,
+                "verbose": self.verbose,
+                "sup_labels": self.sup_labels,
+                "t_total": self.t_total,
+                "warmup": self.warmup,
+                "weight_decay": self.weight_decay,
+                "validate_every": self.validate_every,
+                "schedule": self.schedule,
+                "e": self.e
+            }
+        }
+        return config
+
+    def __init__(self, model, data, best_model_path, lr=0.001, betas=[0.8, 0.9], clip=5,
+                 verbose=True, sup_labels=None, t_total=-1, warmup=0.1, weight_decay=0.01,
+                 validate_every=1, schedule="warmup_linear", e=1e-6):
         self.model = model
         self.optimizer = BertAdam(model, lr, t_total=t_total, b1=betas[0], b2=betas[1], max_grad_norm=clip)
-        self.optimizer_defaults = dict(model=model, lr=lr, warmup=warmup, t_total=t_total, schedule='warmup_linear',
-                 b1=betas[0], b2=betas[1], e=1e-6, weight_decay=0.01,
-                 max_grad_norm=clip)
+        self.optimizer_defaults = dict(
+            model=model, lr=lr, warmup=warmup, t_total=t_total, schedule="warmup_linear",
+            b1=betas[0], b2=betas[1], e=1e-6, weight_decay=weight_decay,
+            max_grad_norm=clip)
+
+        self.lr = lr
+        self.betas = betas
+        self.clip = clip
+        self.sup_labels = sup_labels
+        self.t_total = t_total
+        self.warmup = warmup
+        self.weight_decay = weight_decay
+        self.validate_every = validate_every
+        self.schedule = schedule
         self.data = data
+        self.e = e
         if sup_labels is None:
             sup_labels = data.id2label[1:]
         self.sup_labels = sup_labels
@@ -156,6 +189,18 @@ class NerLearner(object):
         self.clip = clip
         self.best_target_metric = 0.
         self.lr_scheduler = None
+
+    @classmethod
+    def from_config(cls, path):
+        with open(path, "r") as file:
+            config = json.load(file)
+        data = BertNerData.from_config(config["data"])
+        name = config["model"]["name"]
+        # TODO: release all models (now only for BertBiLSTMNCRF)
+        if name not in released_models:
+            raise NotImplemented("from_config is implemented only for {} model :(".format(config["name"]))
+        model = released_models[name].from_config(**config["model"]["params"])
+        return cls(data, model, **config["learner"])
 
     def fit(self, epochs=100, resume_history=True, target_metric="f1"):
         if not resume_history:
@@ -176,12 +221,14 @@ class NerLearner(object):
 
     def fit_one_cycle(self, epoch, target_metric="f1"):
         train_step(self.data.train_dl, self.model, self.optimizer, self.lr_scheduler, self.clip, epoch)
-        if self.data.is_cls:
-            rep, rep_cls = validate_step(self.data.valid_dl, self.model, self.data.id2label, self.sup_labels, self.data.id2cls)
-            self.cls_history.append(rep_cls)
-        else:
-            rep = validate_step(self.data.valid_dl, self.model, self.data.id2label, self.sup_labels)
-        self.history.append(rep)
+        if epoch % self.validate_every == 0:
+            if self.data.is_cls:
+                rep, rep_cls = validate_step(self.data.valid_dl, self.model, self.data.id2label, self.sup_labels,
+                                             self.data.id2cls)
+                self.cls_history.append(rep_cls)
+            else:
+                rep = validate_step(self.data.valid_dl, self.model, self.data.id2label, self.sup_labels)
+            self.history.append(rep)
         idx, metric = get_mean_max_metric(self.history, target_metric, True)
         if self.verbose:
             logging.info("on epoch {} by max_{}: {}".format(idx, target_metric, metric))
