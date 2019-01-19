@@ -15,7 +15,7 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
                 "name": self.__class__.__name__,
                 "params": {
                     "encoder": self.encoder.config,
-                    "decoder": self.decoder.config,
+                    "decoder": self.decoder.config(),
                     "use_cuda": self.use_cuda
                 }
             }
