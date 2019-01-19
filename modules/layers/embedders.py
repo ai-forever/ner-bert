@@ -13,6 +13,21 @@ from elmoformanylangs.frontend import Model
 # TODO: add from_config to other embedders
 class BertEmbedder(nn.Module):
 
+    @property
+    def config(self):
+        config = {
+            "name": "BertEmbedder",
+            "params": {
+                "bert_config_file": self.bert_config_file,
+                "init_checkpoint_pt": self.init_checkpoint_pt,
+                "freeze": self.is_freeze,
+                "embedding_dim": self.embedding_dim,
+                "use_cuda": self.use_cuda,
+                "bert_mode": self.bert_mode
+            }
+        }
+        return config
+
     def __init__(self, model, bert_config_file, init_checkpoint_pt,
                  freeze=True, embedding_dim=768, use_cuda=True, bert_mode="weighted",):
         super(BertEmbedder, self).__init__()
@@ -31,20 +46,6 @@ class BertEmbedder(nn.Module):
             self.cuda()
 
         self.init_weights()
-
-    def get_config(self):
-        config = {
-            "name": "BertEmbedder",
-            "params": {
-                "bert_config_file": self.bert_config_file,
-                "init_checkpoint_pt": self.init_checkpoint_pt,
-                "freeze": self.is_freeze,
-                "embedding_dim": self.embedding_dim,
-                "use_cuda": self.use_cuda,
-                "bert_mode": self.bert_mode
-            }
-        }
-        return config
 
     @classmethod
     def from_config(cls, config):

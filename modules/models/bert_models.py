@@ -61,8 +61,8 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
 
     @classmethod
     def from_config(cls, config):
-        encoder = released_models[name]["encoder"].from_config(**config["encoder"]["params"])
-        decoder = released_models[name]["decoder"].from_config(**config["decoder"]["params"])
+        encoder = released_models["encoder"].from_config(**config["encoder"]["params"])
+        decoder = released_models["decoder"].from_config(**config["decoder"]["params"])
         return cls(encoder, decoder, config["use_cuda"])
 
 
