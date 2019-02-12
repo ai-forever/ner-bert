@@ -120,19 +120,11 @@ class BertEmbedder(nn.Module):
 class Word2VecEmbedder(nn.Module):
     def __init__(self,
                  vocab_size,
-                 embedding_dim=300,
-                 padding_idx=0,
-                 trainable=True,
-                 normalize=True):
+                 embedding_dim=300):
         super(Word2VecEmbedder, self).__init__()
-        self.pad_id = padding_idx
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.model = nn.Embedding(vocab_size, embedding_dim, padding_idx=self.pad_id)
-
-        self.trainable = trainable
-        self.normalize = normalize
-
         if normalize:
             weight = self.embedding.weight
             norms = weight.data.norm(2, 1)

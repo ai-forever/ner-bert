@@ -135,7 +135,7 @@ def get_data(
         is_cls=False, is_meta=False):
     tqdm_notebook = tqdm
     if label2idx is None:
-        label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
+        label2idx = {pad: 0, '[CLS]': 1}
     features = []
     all_args = []
     if is_cls:
@@ -176,15 +176,15 @@ def get_data(
         labels = str(labels).split()
         pad_idx = label2idx[pad]
         assert len(orig_tokens) == len(labels)
-        prev_label = ""
+        # prev_label = ""
         for idx_, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
             # Fix BIO to IO as BERT proposed https://arxiv.org/pdf/1810.04805.pdf
             prefix = "I_"
             if label != "O":
                 label = label.split("_")[1]
-                prev_label = label
-            else:
-                prev_label = label
+                # prev_label = label
+            # else:
+            # prev_label = label
             
             cur_tokens = tokenizer.tokenize(orig_token)
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
@@ -196,11 +196,12 @@ def get_data(
             # ["I_" + label] * (len(cur_tokens) - 1)
             bert_label = [prefix + label] + ["X"] * (len(cur_tokens) - 1)
             bert_labels.extend(bert_label)
-        bert_tokens.append("[SEP]")
-        bert_labels.append("[SEP]")
+        # bert_tokens.append("[SEP]")
+        # bert_labels.append("[SEP]")
         if is_meta:
             meta_tokens.append([0] * len(meta[0]))
-        orig_tokens = ["[CLS]"] + orig_tokens + ["[SEP]"]
+        # + ["[SEP]"]
+        orig_tokens = ["[CLS]"] + orig_tokens
 
         input_ids = tokenizer.convert_tokens_to_ids(bert_tokens)
         labels = bert_labels
