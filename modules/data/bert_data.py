@@ -451,6 +451,11 @@ class BertNerData(object):
             valid_dl = DataLoaderForTrain(
                 valid_f, batch_size=batch_size, cuda=use_cuda, shuffle=False)
 
+        idx2label = sorted(label2idx, key=lambda x: label2idx[x])
+        if meta2idx:
+            idx2meta = sorted(idx2meta, key=lambda x: idx2meta[x])
+        if cls2idx:
+            idx2cls = sorted(idx2cls, key=lambda x: idx2cls[x])
         data = cls(bert_vocab_file, idx2label, config_path, train_path, valid_path,
                    train_dl, valid_dl, tokenizer,
                    bert_model_type, idx2cls, idx2meta, max_seq_len,
