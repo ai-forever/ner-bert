@@ -448,16 +448,17 @@ class BertNerData(object):
 
         meta2idx = None
         cls2idx = None
+        label2idx = None
 
         if idx2label is None and os.path.exists(str(idx2label_path)):
             idx2label = read_json(idx2label_path)
+            label2idx = {label: idx for idx, label in enumerate(idx2label)}
         if is_meta and idx2meta is None and os.path.exists(str(idx2meta_path)):
             idx2meta = read_json(idx2meta_path)
             meta2idx = {label: idx for idx, label in enumerate(idx2meta)}
         if is_cls and idx2cls is None and os.path.exists(str(idx2cls_path)):
             idx2cls = read_json(idx2cls_path)
             cls2idx = {label: idx for idx, label in enumerate(idx2cls)}
-        label2idx = {label: idx for idx, label in enumerate(idx2label)}
 
         train_dl = None
         if train_path:
