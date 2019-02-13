@@ -264,32 +264,7 @@ def get_data(
         assert len(input_ids) == len(input_type_ids)
         assert len(input_ids) == len(labels_ids)
         assert len(input_ids) == len(labels_mask)
-    if is_cls:
-        return features, (label2idx, cls2idx)
-    return features, label2idx
-
-
-def get_bert_data_loaders(train, valid, vocab_file, batch_size=16, cuda=True, is_cls=False,
-                          do_lower_case=False, max_seq_len=424, is_meta=False, label2idx=None, cls2idx=None):
-    train = pd.read_csv(train)
-    valid = pd.read_csv(valid)
-
-    tokenizer = tokenization.FullTokenizer(vocab_file=vocab_file, do_lower_case=do_lower_case)
-    train_f, label2idx = get_data(
-        train, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
-    if is_cls:
-        label2idx, cls2idx = label2idx
-    train_dl = DataLoaderForTrain(
-        train_f, batch_size=batch_size, shuffle=True, cuda=cuda)
-    valid_f, label2idx = get_data(
-        valid, tokenizer, label2idx, cls2idx=cls2idx, is_cls=is_cls, max_seq_len=max_seq_len, is_meta=is_meta)
-    if is_cls:
-        label2idx, cls2idx = label2idx
-    valid_dl = DataLoaderForTrain(
-        valid_f, batch_size=batch_size, cuda=cuda, shuffle=False)
-    if is_cls:
-        return train_dl, valid_dl, tokenizer, label2idx, max_seq_len, cls2idx
-    return train_dl, valid_dl, tokenizer, label2idx, max_seq_len
+    return features, label2idx, cls2idx, meta2idx
 
 
 def get_bert_data_loader_for_predict(path, learner):
