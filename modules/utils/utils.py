@@ -1,10 +1,7 @@
-import __main__ as main
 from collections import Counter
 import numpy as np
-
-
-def ipython_info():
-    return hasattr(main, '__file__')
+import json
+import numpy
 
 
 def voting_choicer(tok_map, labels):
@@ -14,7 +11,7 @@ def voting_choicer(tok_map, labels):
 
         vote_labels = Counter(
             # if l not in ["[SEP]", "[CLS]"] else "I_O"
-            ["I_" + l.split("_")[1] if l not in ["[CLS]", "[SEP]"] else "I_O" for l in labels[prev_idx:origin_idx]])
+            ["I_" + l.split("_")[1] if l not in ["[CLS]"] else "I_O" for l in labels[prev_idx:origin_idx]])
         # vote_labels = Counter(c)
         lb = sorted(list(vote_labels), key=lambda x: vote_labels[x])
         if len(lb):
@@ -32,7 +29,7 @@ def first_choicer(tok_map, labels):
     prev_idx = 0
     for origin_idx in tok_map:
         l = labels[prev_idx]
-        if l in ["[CLS]", "[SEP]"]:
+        if l in ["[CLS]"]:
             l = "I_O"
         label.append(l)
         prev_idx = origin_idx
@@ -61,7 +58,7 @@ def tokens2spans_(tokens_, labels_):
         if label in ["I_O", "B_O", "O"]:
             res.append((tokens_[idx_], "O"))
             idx_ += 1
-        elif label == "[SEP]" or label == "<eos>":
+        elif label == "<eos>":
             break
         elif label == "[CLS]" or label == "<bos>":
             res.append((tokens_[idx_], label))
@@ -105,3 +102,31 @@ def encode_position(pos, emb_dim=10):
     # apply cos on 1st,3rd,5th...emb_dim
     position_enc[1::2] = np.cos(position_enc[1::2])
     return list(position_enc.reshape(-1))
+
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, numpy.integer):
+            return int(obj)
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        else:
+            return super(JsonEncoder, self).default(obj)
+
+
+def jsonify(data):
+    return json.dumps(data, cls=JsonEncoder)
+
+
+def read_json(config):
+    if isinstance(config, str):
+        with open(config, "r") as f:
+            config = json.load(f)
+    return config
+
+
+def save_json(config, path):
+    with open(path, "w") as file:
+        json.dump(config, file, cls=JsonEncoder)
