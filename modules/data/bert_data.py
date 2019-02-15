@@ -269,14 +269,18 @@ def get_data(
 
 def get_bert_data_loader_for_predict(path, learner):
     df = pd.read_csv(path)
-    f, _ = get_data(df, tokenizer=learner.data.tokenizer,
-                    label2idx=learner.data.label2idx, cls2idx=learner.data.cls2idx,
-                    is_cls=learner.data.is_cls,
-                    max_seq_len=learner.data.max_seq_len, is_meta=learner.data.is_meta)
+
+    f, label2idx, cls2idx, meta2idx = get_data(
+        df, learner.data.tokenizer,
+        learner.data.label2idx, learner.data.cls2idx,
+        learner.data.meta2idx,
+        learner.data.is_cls,
+        learner.data.is_meta,
+        learner.data.max_seq_len,
+        learner.data.pad)
     dl = DataLoaderForPredict(
         f, batch_size=learner.data.batch_size, shuffle=False,
-        cuda=True)
-
+        cuda=learner.data.use_cuda)
     return dl
 
 
