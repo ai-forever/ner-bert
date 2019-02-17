@@ -1,10 +1,10 @@
-from modules.layers.encoders import *
-from modules.layers.decoders import *
+# from modules.layers.encoders import *
+# from modules.layers.decoders import *
 
 
-released_models = {
-    "BertBiLSTMNCRF": {
-        "encoder": BertBiLSTMEncoder,
-        "decoder": NCRFDecoder
-    }
-}
+# released_models = {
+#    "BertBiLSTMNCRF": {
+#        "encoder": BertBiLSTMEncoder,
+#        "decoder": NCRFDecoder
+#    }
+# }
