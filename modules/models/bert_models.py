@@ -409,18 +409,22 @@ class BertBiLSTMNCRF(NerModel):
                # BertBiLSTMEncoder params
                enc_hidden_dim=128, rnn_layers=1,
                input_dropout=0.5,
+               output_dropout=0.4,
                # Global params
                use_cuda=True,
                # Meta
                meta_dim=None,
+               vocab_meta_dim=None,
                # NCRFpp
                nbest=8):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
+        embeddings = BertEmbedder.create(
+            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda,
+            bert_mode, freeze)
+        meta_embeddings = None
+        if meta_dim is not None and vocab_meta_dim is not None:
+            meta_embeddings = nn.Embedding(vocab_meta_dim, meta_dim, padding_idx=0)
+        encoder = BertMetaBiLSTMEncoder.create(
+            embeddings, meta_embeddings, enc_hidden_dim, rnn_layers, input_dropout, use_cuda)
         decoder = NCRFDecoder.create(
-            label_size, encoder.output_dim, input_dropout, nbest)
+            label_size, encoder.output_dim, output_dropout, nbest)
         return cls(encoder, decoder, use_cuda)
