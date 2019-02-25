@@ -172,6 +172,12 @@ def get_data(
         bert_tokens.append("[CLS]")
         bert_labels.append("[CLS]")
         orig_tokens = []
+        text = text.replace('\x97', "unk")
+        text = text.replace('\uf076', "unk")
+        text = text.replace("\ue405", "unk")
+        text = text.replace("\ue105", "unk")
+        text = text.replace("\ue415", "unk")
+        text = text.replace('\x07', "unk")
         orig_tokens.extend(str(text).split())
         labels = str(labels).split()
         pad_idx = label2idx[pad]
@@ -179,12 +185,14 @@ def get_data(
         # prev_label = ""
         for idx_, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
             # Fix BIO to IO as BERT proposed https://arxiv.org/pdf/1810.04805.pdf
-            prefix = "I_"
+            prefix = "B_"
             if label != "O":
                 label = label.split("_")[1]
-                # prev_label = label
-            # else:
-            # prev_label = label
+                if label == prev_label:
+                    prefix = "I_"
+                prev_label = label
+            else:
+                prev_label = label
             
             cur_tokens = tokenizer.tokenize(orig_token)
             if max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
@@ -253,7 +261,9 @@ def get_data(
         ))
         assert len(input_ids) == len(input_mask)
         assert len(input_ids) == len(input_type_ids)
-        assert len(input_ids) == len(labels_ids)
+        if len(input_ids) != len(labels_ids):
+            print(len(input_ids), len(labels_ids), orig_tokens)
+            raise
         assert len(input_ids) == len(labels_mask)
     if is_cls:
         

@@ -55,7 +55,7 @@ def get_mean_max_metric(history, metric_="f1", return_idx=False):
         m_idx = 2
     elif m_idx == "rec":
         m_idx = 1
-    metrics = [float(h.split("\n")[-3].split()[2 + m_idx]) for h in history]
+    metrics = [float(h.split("\n")[-2].split()[3 + m_idx]) for h in history]
     idx = np.argmax(metrics)
     res = metrics[idx]
     if return_idx:
