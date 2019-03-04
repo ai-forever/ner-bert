@@ -1,4 +1,4 @@
-### Sorry, we are in developing. In the end of this mounth we will do release. 
+### Sorry, we are in developing. Release is coming soon :(. 
 
 # PyTorch solution of NER task with Google AI's BERT model
 ## 0. Introduction
