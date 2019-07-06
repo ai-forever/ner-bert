@@ -17,7 +17,7 @@ from modules.data import bert_data
 data = bert_data.LearnData.create(
     train_df_path=train_df_path,
     valid_df_path=valid_df_path,
-    idx2labels_path="/home/eartemov/ae/work/factRuEval-2016/idx2labels4.txt",
+    idx2labels_path="/path/to/vocab",
     clear_cache=True
 )
 ```
