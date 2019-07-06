@@ -10,7 +10,57 @@ This implementation can load any pre-trained TensorFlow checkpoint for BERT (in 
 
 Old version is in "old" branch.
 
-## 2. Results
+## 2. Usage
+### 2.1 Create data
+```
+from modules.data import bert_data
+data = bert_data.LearnData.create(
+    train_df_path=train_df_path,
+    valid_df_path=valid_df_path,
+    idx2labels_path="/home/eartemov/ae/work/factRuEval-2016/idx2labels4.txt",
+    clear_cache=True
+)
+```
+
+### 2.2 Create model
+```
+from modules.models.bert_models import BERTBiLSTMAttnCRF
+model = BERTBiLSTMAttnCRF.create(len(data.train_ds.idx2label))
+```
+
+### 2.3 Create Learner
+```
+from modules.train.train import NerLearner
+num_epochs = 100
+learner = NerLearner(
+    model, data, "/path/for/save/best/model", t_total=num_epochs * len(data.train_dl))
+```
+
+### 2.4 Predict
+```
+from modules.data.bert_data import get_data_loader_for_predict
+learner.load_model()
+dl = get_data_loader_for_predict(data, df_path="/path/to/df/for/predict")
+preds = learner.predict(dl)
+```
+
+### 2.5 Evaluate
+```
+from sklearn_crfsuite.metrics import flat_classification_report
+from modules.analyze_utils.utils import bert_labels2tokens, voting_choicer
+from modules.analyze_utils.plot_metrics import get_bert_span_report
+from modules.analyze_utils.main_metrics import precision_recall_f1
+
+
+pred_tokens, pred_labels = bert_labels2tokens(dl, preds)
+true_tokens, true_labels = bert_labels2tokens(dl, [x.bert_labels for x in dl.dataset])
+tokens_report = flat_classification_report(true_labels, pred_labels, digits=4)
+print(tokens_report)
+
+results = precision_recall_f1(true_labels, pred_labels)
+```
+
+## 3. Results
 We didn't search best parametres and obtained the following results.
 
 | Model | Data set | Dev F1 tok | Dev F1 span | Test F1 tok | Test F1 span
