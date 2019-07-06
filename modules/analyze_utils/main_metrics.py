@@ -72,12 +72,8 @@ def _global_stats_f1(results):
 
 
 def precision_recall_f1(y_true, y_pred, print_results=True, short_report=False, entity_of_interest=None):
-    true_labels_list = []
-    pred_labels_list = []
-    for x in y_true:
-        true_labels_list.extend(x)
-    for x in y_pred:
-        pred_labels_list.extend(x)
+    y_true = list(itertools.chain(*y_true))
+    y_pred = list(itertools.chain(*y_pred))
     # Find all tags
     tags = set()
     for tag in itertools.chain(y_true, y_pred):
