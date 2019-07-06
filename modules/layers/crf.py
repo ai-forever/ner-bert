@@ -29,6 +29,9 @@ def sequence_mask(lens, max_len=None):
 
 
 class CRF(nn.Module):
+    def forward(self, *input_):
+        return self.viterbi_decode(*input_)
+
     def __init__(self, label_size):
         super(CRF, self).__init__()
 
@@ -43,7 +46,8 @@ class CRF(nn.Module):
         self.transition.data[:, self.end] = -100.0
         self.transition.data[self.start, :] = -100.0
 
-    def pad_logits(self, logits):
+    @staticmethod
+    def pad_logits(logits):
         # lens = lens.data
         batch_size, seq_len, label_num = logits.size()
         # pads = Variable(logits.data.new(batch_size, seq_len, 2).fill_(-1000.0),
@@ -83,7 +87,8 @@ class CRF(nn.Module):
 
         return score
 
-    def calc_unary_score(self, logits, labels, lens):
+    @staticmethod
+    def calc_unary_score(logits, labels, lens):
         labels_exp = labels.unsqueeze(-1)
         scores = torch.gather(logits, 2, labels_exp).squeeze(-1)
         mask = sequence_mask(lens).float()

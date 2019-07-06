@@ -1,34 +1,22 @@
-from modules.layers.encoders import *
 from modules.layers.decoders import *
 from modules.layers.embedders import *
+from modules.layers.layers import BiLSTM, MultiHeadAttention
 import abc
-import sys
-from .released_models import released_models
 
 
-class NerModel(nn.Module, metaclass=abc.ABCMeta):
-
-    """Base class for all Models"""
-    def __init__(self, encoder, decoder, use_cuda=True):
-        super(NerModel, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.use_cuda = use_cuda
-        if use_cuda:
-            self.cuda()
+class BERTNerModel(nn.Module, metaclass=abc.ABCMeta):
+    """Base class for all BERT Models"""
 
     @abc.abstractmethod
-    def forward(self, *batch):
-        # return self.decoder(self.encoder(batch))
+    def forward(self, batch):
         raise NotImplementedError("abstract method forward must be implemented")
 
     @abc.abstractmethod
-    def score(self, *batch):
-        # return self.decoder.score(self.encoder(batch))
+    def score(self, batch):
         raise NotImplementedError("abstract method score must be implemented")
 
     @abc.abstractmethod
-    def create(self, *args):
+    def create(self, *args, **kwargs):
         raise NotImplementedError("abstract method create must be implemented")
 
     def get_n_trainable_params(self):
@@ -41,390 +29,595 @@ class NerModel(nn.Module, metaclass=abc.ABCMeta):
                 pp += num
         return pp
 
-    def get_config(self):
-        try:
-            config = {
-                "name": self.__class__.__name__,
-                "params": {
-                    "encoder": self.encoder.get_config(),
-                    "decoder": self.decoder.get_config(),
-                    "use_cuda": self.use_cuda
-                }
-            }
-        except AttributeError:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        except NotImplemented:
-            config = {}
-            print("config is empty :(. Maybe for this model from_config has not implemented yet.", file=sys.stderr)
-        return config
 
-    @classmethod
-    def from_config(cls, config):
-        encoder = released_models["encoder"].from_config(**config["encoder"]["params"])
-        decoder = released_models["decoder"].from_config(**config["decoder"]["params"])
-        return cls(encoder, decoder, config["use_cuda"])
+class BERTBiLSTMCRF(BERTNerModel):
 
-
-class BertBiLSTMCRF(NerModel):
+    def __init__(self, embeddings, lstm, crf, device="cuda"):
+        super(BERTBiLSTMCRF, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.score(output, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM params
+               embedding_size=768, hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
                # CRFDecoder params
-               input_dropout=0.5,
+               crf_dropout=0.5,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = CRFDecoder.create(label_size, encoder.output_dim, input_dropout)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+                embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        crf = CRFDecoder.create(label_size, hidden_dim, crf_dropout)
+        return cls(embeddings, lstm, crf, device)
 
 
-class BertBiLSTMAttnCRF(NerModel):
+class BERTBiLSTMNCRF(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, crf, device="cuda"):
+        super(BERTBiLSTMNCRF, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.score(output, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # AttnCRFDecoder params
-               key_dim=64, val_dim=64, num_heads=3,
-               input_dropout=0.5,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM params
+               embedding_size=768, hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = AttnCRFDecoder.create(
-            label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+                embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        crf = NCRFDecoder.create(
+            label_size, hidden_dim, crf_dropout, nbest, device=device)
+        return cls(embeddings, lstm, crf, device)
 
 
-class BertAttnCRF(NerModel):
+class BERTAttnCRF(BERTNerModel):
+
+    def __init__(self, embeddings, attn, crf, device="cuda"):
+        super(BERTAttnCRF, self).__init__()
+        self.embeddings = embeddings
+        self.attn = attn
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(*batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.score(output, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # AttnCRFDecoder params
-               key_dim=64, val_dim=64, num_heads=3,
-               input_dropout=0.5,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5,
                # Global params
-               use_cuda=True):
-        encoder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        decoder = AttnCRFDecoder.create(
-            label_size, embedding_dim, input_dropout, key_dim, val_dim, num_heads)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        attn = MultiHeadAttention(key_dim, val_dim, embedding_size, num_heads, attn_dropout)
+        crf = CRFDecoder.create(
+            label_size, embedding_size, crf_dropout)
+        return cls(embeddings, attn, crf, device)
 
 
-class BertBiLSTMAttnNMT(NerModel):
-    """Reused from https://github.com/DSKSD/RNN-for-Joint-NLU"""
+class BERTAttnNCRF(BERTNerModel):
+
+    def __init__(self, embeddings, attn, crf, device="cuda"):
+        super(BERTAttnNCRF, self).__init__()
+        self.embeddings = embeddings
+        self.attn = attn
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.score(output, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # NMTDecoder params
-               dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
-               input_dropout=0.5, pad_idx=0,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = NMTDecoder.create(
-            label_size, dec_embedding_dim, dec_hidden_dim,
-            dec_rnn_layers, input_dropout, pad_idx, use_cuda)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        attn = MultiHeadAttention(key_dim, val_dim, embedding_size, num_heads, attn_dropout)
+        crf = NCRFDecoder.create(
+            label_size, embedding_size, crf_dropout, nbest=nbest, device=device)
+        return cls(embeddings, attn, crf, device)
 
 
-class BertBiLSTMAttnNMTCRF(NerModel):
+class BERTBiLSTMAttnCRF(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, attn, crf, device="cuda"):
+        super(BERTBiLSTMAttnCRF, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.attn = attn
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.score(output, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # NMTDecoder params
-               dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
-               input_dropout=0.5, pad_idx=0,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = NMTCRFDecoder.create(
-            label_size, dec_embedding_dim, dec_hidden_dim,
-            dec_rnn_layers, input_dropout, pad_idx, use_cuda)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+            embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = CRFDecoder.create(
+            label_size, hidden_dim, crf_dropout)
+        return cls(embeddings, lstm, attn, crf, device)
 
 
-class BertBiLSTMAttnCRFJoint(NerModel):
+class BERTBiLSTMAttnNCRF(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, attn, crf, device="cuda"):
+        super(BERTBiLSTMAttnNCRF, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.attn = attn
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.forward(output, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1], batch[-3])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.score(output, labels_mask, labels)
+
+    @classmethod
+    def create(cls,
+               label_size,
+               # BertEmbedder params
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
+               # Global params
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+            embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = NCRFDecoder.create(
+            label_size, hidden_dim, crf_dropout, nbest=nbest, device=device)
+        return cls(embeddings, lstm, attn, crf, device)
+
+
+class BERTBiLSTMAttnNCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, attn, crf, clf, device="cuda"):
+        super(BERTBiLSTMAttnNCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.attn = attn
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
+
+    def forward(self, batch):
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.forward(output, labels_mask), self.clf(output)
+
+    def score(self, batch):
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
 
     @classmethod
     def create(cls,
                label_size, intent_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # AttnCRFDecoder params
-               key_dim=64, val_dim=64, num_heads=3,
-               input_dropout=0.5,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
+               # Clf params
+               clf_dropout=0.3,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = AttnCRFJointDecoder.create(
-            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+            embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = NCRFDecoder.create(
+            label_size, hidden_dim, crf_dropout, nbest=nbest, device=device)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, lstm, attn, crf, clf, device)
 
 
-class BertBiLSTMAttnNMTJoint(NerModel):
-    """Reused from https://github.com/DSKSD/RNN-for-Joint-NLU"""
+class BERTBiLSTMAttnCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, attn, crf, clf, device="cuda"):
+        super(BERTBiLSTMAttnCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.attn = attn
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.forward(output, labels_mask), self.clf(output)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1], batch[-3])
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        output, _ = self.attn(output, output, output, None)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
 
     @classmethod
     def create(cls,
                label_size, intent_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # NMTDecoder params
-               dec_embedding_dim=64, dec_hidden_dim=256, dec_rnn_layers=1,
-               input_dropout=0.5, pad_idx=0,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5,
+               # Clf params
+               clf_dropout=0.3,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = NMTJointDecoder.create(
-            label_size, intent_size, dec_embedding_dim, dec_hidden_dim,
-            dec_rnn_layers, input_dropout, pad_idx, use_cuda)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+            embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = CRFDecoder.create(
+            label_size, hidden_dim, crf_dropout)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, lstm, attn, crf, clf, device)
 
 
-class BertBiLSTMAttnNCRFJoint(NerModel):
+class BERTBiLSTMCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, crf, clf, device="cuda"):
+        super(BERTBiLSTMCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.forward(output, labels_mask), self.clf(output)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1], batch[-3])
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
 
     @classmethod
     def create(cls,
                label_size, intent_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # AttnNCRFDecoder params
-               key_dim=64, val_dim=64, num_heads=3,
-               input_dropout=0.5,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM params
+               embedding_size=768, hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5,
+               # Clf params
+               clf_dropout=0.3,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None,
-               # NCRFpp
-               nbest=8):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = AttnNCRFJointDecoder.create(
-            label_size, encoder.output_dim, intent_size, input_dropout, key_dim, val_dim, num_heads, use_cuda,
-            nbest=nbest)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+                embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        crf = CRFDecoder.create(label_size, hidden_dim, crf_dropout)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, lstm, crf, clf, device)
 
 
-class BertBiLSTMAttnNCRF(NerModel):
+class BERTBiLSTMNCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, lstm, crf, clf, device="cuda"):
+        super(BERTBiLSTMNCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.lstm = lstm
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.forward(output, labels_mask), self.clf(output)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.lstm.forward(input_embeddings, labels_mask)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
+
+    @classmethod
+    def create(cls,
+               label_size, intent_size,
+               # BertEmbedder params
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM params
+               embedding_size=768, hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5, nbest=1,
+               # Clf params
+               clf_dropout=0.3,
+               # Global params
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        lstm = BiLSTM.create(
+                embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
+        crf = NCRFDecoder.create(label_size, hidden_dim, crf_dropout, nbest=nbest, device=device)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, lstm, crf, clf, device)
+
+
+class BERTAttnCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, attn, crf, clf, device="cuda"):
+        super(BERTAttnCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.attn = attn
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
+
+    def forward(self, batch):
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.forward(output, labels_mask), self.clf(output)
+
+    def score(self, batch):
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
+
+    @classmethod
+    def create(cls,
+               label_size, intent_size,
+               # BertEmbedder params
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # CRFDecoder params
+               crf_dropout=0.5,
+               # Clf params
+               clf_dropout=0.3,
+               # Global params
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = CRFDecoder.create(
+            label_size, hidden_dim, crf_dropout)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, attn, crf, clf, device)
+
+
+class BERTAttnNCRFJoint(BERTNerModel):
+
+    def __init__(self, embeddings, attn, crf, clf, device="cuda"):
+        super(BERTAttnNCRFJoint, self).__init__()
+        self.embeddings = embeddings
+        self.attn = attn
+        self.crf = crf
+        self.clf = clf
+        self.to(device)
+
+    def forward(self, batch):
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.forward(output, labels_mask), self.clf(output)
+
+    def score(self, batch):
+        input_, labels_mask, input_type_ids, labels, cls_ids = batch
+        input_embeddings = self.embeddings(batch)
+        output, _ = self.attn(input_embeddings, input_embeddings, input_embeddings, None)
+        return self.crf.score(output, labels_mask, labels) + self.clf.score(output, cls_ids)
+
+    @classmethod
+    def create(cls,
+               label_size, intent_size,
+               # BertEmbedder params
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               # BiLSTM
+               hidden_dim=512, rnn_layers=1, lstm_dropout=0.3,
+               # Attn params
+               embedding_size=768, key_dim=64, val_dim=64, num_heads=3, attn_dropout=0.3,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
+               # Clf params
+               clf_dropout=0.3,
+               # Global params
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
+        crf = NCRFDecoder.create(
+            label_size, hidden_dim, crf_dropout, nbest=nbest, device=device)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
+        return cls(embeddings, attn, crf, clf, device)
+
+
+class BERTNCRF(BERTNerModel):
+
+    def __init__(self, embeddings, crf, device="cuda"):
+        super(BERTNCRF, self).__init__()
+        self.embeddings = embeddings
+        self.crf = crf
+        self.to(device)
+
+    def forward(self, batch):
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        return self.crf.forward(input_embeddings, labels_mask)
+
+    def score(self, batch):
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        return self.crf.score(input_embeddings, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               # AttnNCRFDecoder params
-               key_dim=64, val_dim=64, num_heads=3,
-               input_dropout=0.5,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               embedding_size=768,
+               # NCRFDecoder params
+               crf_dropout=0.5, nbest=1,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None,
-               # NCRFpp
-               nbest=8):
-        embedder = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda, bert_mode, freeze)
-        if meta_dim is None:
-            encoder = BertBiLSTMEncoder.create(embedder, enc_hidden_dim, rnn_layers, use_cuda)
-        else:
-            encoder = BertMetaBiLSTMEncoder.create(embedder, meta_dim, enc_hidden_dim, rnn_layers, use_cuda)
-        decoder = AttnNCRFDecoder.create(
-            label_size, encoder.output_dim, input_dropout, key_dim, val_dim, num_heads, nbest)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        crf = NCRFDecoder.create(
+            label_size, embedding_size, crf_dropout, nbest=nbest, device=device)
+        return cls(embeddings, crf, device)
 
 
-class BertBiLSTMNCRF(NerModel):
+class BERTCRF(BERTNerModel):
+
+    def __init__(self, embeddings, crf, device="cuda"):
+        super(BERTCRF, self).__init__()
+        self.embeddings = embeddings
+        self.crf = crf
+        self.to(device)
 
     def forward(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder(output, batch[-2])
+        input_, labels_mask, input_type_ids = batch[:3]
+        input_embeddings = self.embeddings(batch)
+        return self.crf.forward(input_embeddings, labels_mask)
 
     def score(self, batch):
-        output, _ = self.encoder(batch)
-        return self.decoder.score(output, batch[-2], batch[-1])
+        input_, labels_mask, input_type_ids, labels = batch
+        input_embeddings = self.embeddings(batch)
+        return self.crf.score(input_embeddings, labels_mask, labels)
 
     @classmethod
     def create(cls,
                label_size,
                # BertEmbedder params
-               bert_config_file, init_checkpoint_pt, embedding_dim=768, bert_mode="weighted",
-               freeze=True,
-               # BertBiLSTMEncoder params
-               enc_hidden_dim=128, rnn_layers=1,
-               input_dropout=0.5,
-               output_dropout=0.4,
+               model_name='bert-base-multilingual-cased', mode="weighted", is_freeze=True,
+               embedding_size=768,
+               # NCRFDecoder params
+               crf_dropout=0.5,
                # Global params
-               use_cuda=True,
-               # Meta
-               meta_dim=None,
-               vocab_meta_dim=None,
-               # NCRFpp
-               nbest=8):
-        embeddings = BertEmbedder.create(
-            bert_config_file, init_checkpoint_pt, embedding_dim, use_cuda,
-            bert_mode, freeze)
-        meta_embeddings = None
-        if meta_dim is not None and vocab_meta_dim is not None:
-            meta_embeddings = nn.Embedding(vocab_meta_dim, meta_dim, padding_idx=0)
-        encoder = BertMetaBiLSTMEncoder.create(
-            embeddings, meta_embeddings, enc_hidden_dim, rnn_layers, input_dropout, use_cuda)
-        decoder = NCRFDecoder.create(
-            label_size, encoder.output_dim, output_dropout, nbest)
-        return cls(encoder, decoder, use_cuda)
+               device="cuda"):
+        embeddings = BERTEmbedder.create(model_name=model_name, device=device, mode=mode, is_freeze=is_freeze)
+        crf = CRFDecoder.create(
+            label_size, embedding_size, crf_dropout)
+        return cls(embeddings, crf, device)

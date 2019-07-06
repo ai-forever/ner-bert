@@ -1,6 +1,7 @@
-from .train.train import NerLearner
-from .data.bert_data import BertNerData
-from .models.bert_models import BertBiLSTMCRF
+from .utils import get_tqdm
 
 
-__all__ = ["NerLearner", "BertNerData", "BertBiLSTMCRF"]
+tqdm = get_tqdm()
+
+
+__all__ = ["tqdm"]

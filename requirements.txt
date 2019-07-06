@@ -1,8 +1,10 @@
-torch
-tqdm
-tensorflow
+bson
 pandas
+scikit-learn
+sklearn-crfsuite
+tqdm
+rusenttokenize
 numpy
-six
-gensim
-elmoformanylangs
+nltk
+torch
+matplotlib
