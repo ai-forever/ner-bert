@@ -36,7 +36,7 @@ class InputFeature(object):
         self.cls = cls
         self.id_cls = id_cls
         if cls is not None:
-            self.data.append(cls)
+            self.data.append(id_cls)
         # Origin data
         self.tokens = tokens
         self.tok_map = tok_map
@@ -78,9 +78,8 @@ class TextDataSet(object):
         elif df is None:
             df = pd.DataFrame(columns=["text", "clf"])
         if clear_cache:
-            _ = cls.create_vocabs(
-                df, idx2cls_path, idx2cls)
-        self = cls(tokenizer, df=df, config=config)
+            _, idx2cls = cls.create_vocabs(df, idx2cls_path, idx2cls)
+        self = cls(tokenizer, df=df, config=config, idx2cls=idx2cls)
         self.load()
         return self
 
@@ -140,11 +139,8 @@ class TextDataSet(object):
             input_mask.append(0)
             tok_map.append(-1)
         input_type_ids = [0] * len(input_ids)
-        cls = None
-        id_cls = None
-        if self.is_cls:
-            cls = row.cls
-            id_cls = self.cls2idx[cls]
+        cls = str(row.cls)
+        id_cls = self.cls2idx[cls]
         return InputFeature(
             # Bert data
             bert_tokens=bert_tokens,
@@ -177,18 +173,15 @@ class TextDataSet(object):
             self, tokenizer,
             df=None,
             config=None,
-            idx2cls=None,
-            is_cls=False):
+            idx2cls=None):
         self.df = df
         self.tokenizer = tokenizer
         self.config = config
         self.label2idx = None
 
         self.idx2cls = idx2cls
-
         if idx2cls is not None:
             self.cls2idx = {label: idx for idx, label in enumerate(idx2cls)}
-        self.is_cls = is_cls
 
 
 class LearnDataClass(object):
