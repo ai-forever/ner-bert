@@ -260,4 +260,4 @@ def get_data_loader_for_predict(data, df_path=None, df=None):
         idx2cls=data.train_ds.idx2cls,
         df=df, tokenizer=data.train_ds.tokenizer, **config)
     return TextDataLoader(
-        ds, device=data.train_dl.device, batch_size=data.train_dl.batch_size, shuffle=False)
+        ds, device=data.train_dl.device, batch_size=data.train_dl.batch_size, shuffle=False), ds
