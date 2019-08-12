@@ -176,5 +176,5 @@ class BERTBiLSTMAttnClassifier(BERTNerModel):
         lstm = BiLSTM.create(
             embedding_size=embedding_size, hidden_dim=hidden_dim, rnn_layers=rnn_layers, dropout=lstm_dropout)
         attn = MultiHeadAttention(key_dim, val_dim, hidden_dim, num_heads, attn_dropout)
-        clf = ClassDecoder(intent_size, embedding_size, clf_dropout)
+        clf = ClassDecoder(intent_size, hidden_dim, clf_dropout)
         return cls(embeddings, lstm, attn, clf, device)
