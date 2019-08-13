@@ -15,7 +15,8 @@ def ipython_info():
 
 
 def get_tqdm():
-    if ipython_info() == "terminal":
+    ip = ipython_info()
+    if ip == "terminal" or not ip:
         from tqdm import tqdm
         return tqdm
     else:

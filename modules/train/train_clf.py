@@ -4,7 +4,7 @@ import logging
 import torch
 from .optimization import BertAdam
 from modules.analyze_utils.plot_metrics import get_mean_max_metric
-from modules.data.bert_data import get_data_loader_for_predict
+from modules.data.bert_data_clf import get_data_loader_for_predict
 
 
 def train_step(dl, model, optimizer, num_epoch=1):
@@ -131,7 +131,7 @@ class NerLearner(object):
 
     def predict(self, dl=None, df_path=None, df=None):
         if dl is None:
-            dl = get_data_loader_for_predict(self.data, df_path, df)
+            dl, ds = get_data_loader_for_predict(self.data, df_path, df)
         return predict(dl, self.model, self.data.train_ds.idx2cls)
     
     def save_model(self, path=None):

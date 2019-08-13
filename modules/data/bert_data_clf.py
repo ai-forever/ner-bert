@@ -74,13 +74,13 @@ class TextDataSet(object):
             "idx2cls_path": idx2cls_path
         }
         if df is None and df_path is not None:
-            df = pd.read_csv(df_path, sep='\t')
+            df = pd.read_csv(df_path, sep='\t', engine='python')
         elif df is None:
             df = pd.DataFrame(columns=["text", "clf"])
         if clear_cache:
             _, idx2cls = cls.create_vocabs(df, idx2cls_path, idx2cls)
         self = cls(tokenizer, df=df, config=config, idx2cls=idx2cls)
-        self.load()
+        self.load(df=df)
         return self
 
     @staticmethod
@@ -103,9 +103,10 @@ class TextDataSet(object):
 
         return cls2idx, idx2cls
 
-    def load(self, df_path=None):
+    def load(self, df_path=None, df=None):
         df_path = if_none(df_path, self.config["df_path"])
-        self.df = pd.read_csv(df_path, sep='\t')
+        if df is None:
+            self.df = pd.read_csv(df_path, sep='\t')
 
         self.idx2cls = []
         self.cls2idx = {}
@@ -237,7 +238,10 @@ class LearnDataClass(object):
                 df=valid_df, tokenizer=train_ds.tokenizer)
             valid_dl = TextDataLoader(valid_ds, device=device, batch_size=batch_size)
 
-        return cls(train_ds, train_dl, valid_ds, valid_dl)
+        self = cls(train_ds, train_dl, valid_ds, valid_dl)
+        self.device = device
+        self.batch_size = batch_size
+        return self
 
     def load(self):
         if self.train_ds is not None:
@@ -260,4 +264,4 @@ def get_data_loader_for_predict(data, df_path=None, df=None):
         idx2cls=data.train_ds.idx2cls,
         df=df, tokenizer=data.train_ds.tokenizer, **config)
     return TextDataLoader(
-        ds, device=data.train_dl.device, batch_size=data.train_dl.batch_size, shuffle=False), ds
+        ds, device=data.device, batch_size=data.batch_size, shuffle=False), ds
