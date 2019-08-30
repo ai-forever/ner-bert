@@ -43,6 +43,8 @@ class InputFeature(object):
         # Classification data
         self.cls = cls
         self.id_cls = id_cls
+        if id_cls is not None:
+            self.data.append(id_cls)
         # Origin data
         self.tokens = tokens
         self.tok_map = tok_map
@@ -123,7 +125,7 @@ class TextDataSet(object):
         if clear_cache:
             _ = cls.create_vocabs(
                 df, tokenizer, idx2labels_path, markup, idx2cls_path, pad_idx, is_cls, idx2labels, idx2cls)
-        self = cls(tokenizer, df=df, config=config)
+        self = cls(tokenizer, df=df, config=config, is_cls=is_cls)
         self.load(df=df)
         return self
 
@@ -249,7 +251,10 @@ class TextDataSet(object):
         id_cls = None
         if self.is_cls:
             cls = row.cls
-            id_cls = self.cls2idx[cls]
+            try:
+                id_cls = self.cls2idx[cls]
+            except KeyError:
+                id_cls = self.cls2idx[str(cls)]
         return InputFeature(
             # Bert data
             bert_tokens=bert_tokens,

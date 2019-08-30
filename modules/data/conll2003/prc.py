@@ -12,15 +12,15 @@ def conll2003_preprocess(
     test_f = read_data(os.path.join(data_dir, test_name))
 
     train = pd.DataFrame({"labels": [x[0] for x in train_f], "text": [x[1] for x in train_f]})
-    train["clf"] = train["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
+    train["cls"] = train["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
     train.to_csv(os.path.join(data_dir, "{}.train.csv".format(train_name)), index=False, sep="\t")
 
     dev = pd.DataFrame({"labels": [x[0] for x in dev_f], "text": [x[1] for x in dev_f]})
-    dev["clf"] = dev["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
+    dev["cls"] = dev["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
     dev.to_csv(os.path.join(data_dir, "{}.dev.csv".format(dev_name)), index=False, sep="\t")
 
     test_ = pd.DataFrame({"labels": [x[0] for x in test_f], "text": [x[1] for x in test_f]})
-    test_["clf"] = test_["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
+    test_["cls"] = test_["labels"].apply(lambda x: all([y.split("_")[0] == "O" for y in x.split()]))
     test_.to_csv(os.path.join(data_dir, "{}.dev.csv".format(test_name)), index=False, sep="\t")
 
 
