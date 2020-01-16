@@ -89,8 +89,9 @@ class Learner(object):
         criterion = GeneralCriterion.create(**criterion_args)
         tb_log = TensorboardLog(tensorboard_dir)
         return cls(
-            data, model, optimizer, criterion, tb_log, epochs,
-            save_every, update_freq, target_metric, checkpoint_dir)
+            data=data, model=model, optimizer=optimizer, criterion=criterion, tb_log=tb_log, epochs=epochs,
+            save_every=save_every, update_freq=update_freq, device=device,
+            target_metric=target_metric, checkpoint_dir=checkpoint_dir)
 
     def __init__(self, data, model, optimizer, criterion, tb_log,
                  epochs=10, save_every=1, update_freq=1, device="cuda",
@@ -122,11 +123,11 @@ class Learner(object):
         for epoch in range(self.epochs):
             epoch += 1
             for split in self.splits:
-                if split in self.data.dataloaders:
-                    epoch_metrics = self.step(self.data.dataloaders, epoch, split)
-                    if split == "train" and epoch % self.save_every:
+                if self.data.dataloaders.get(split) is not None:
+                    epoch_metrics = self.step(self.data.dataloaders[split], epoch, split)
+                    if split == "train" and epoch % self.save_every == 0:
                         self.save_model(self.last_model_path)
-                    if split == "valid" and best_metric < epoch_metrics[self.target_metric]:
+                    if split == "valid" and best_metric < epoch_metrics.get(self.target_metric, 0):
                         self.save_model(self.best_model_path)
                     self.history[split].append(epoch_metrics)
                     save_pkl(self.history, self.history_path)
@@ -136,37 +137,55 @@ class Learner(object):
             self.model.train()
         else:
             self.model.eval()
-        epoch_metrics = dict()
-        pr = tqdm(dl, total=len(dl), leave=False)
-        num_batches = epoch * len(dl)
+        self.optimizer.zero_grad()
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
+        epoch_metrics = {"n_samples": 0}
+        len_dl = len(dl)
+        pr = tqdm(dl, total=len_dl, leave=False)
+        num_batches = (epoch - 1) * len_dl
         log_metrics = {}
         for idx, batch in enumerate(pr, 1):
-            logits = self.model(**batch["net_input"])
+            logits = self.model(batch)
             y_true = batch["target"]
-            loss, metrics = self.criterion(y_true, logits)
-
+            if tag == "train":
+                loss, metrics = self.criterion(logits, y_true)
+            else:
+                with torch.no_grad():
+                    loss, metrics = self.criterion(logits, y_true)
+            bs = metrics.pop("n_samples", 4)
+            epoch_metrics["n_samples"] += bs
             for key, val in metrics.items():
                 if key not in epoch_metrics:
                     epoch_metrics[key] = 0
                 epoch_metrics[key] += val
                 if key == "loss":
-                    log_metrics[key] = epoch_metrics[key] / idx
+                    log_metrics[key] = val
+                    log_metrics["epoch_loss"] = epoch_metrics[key] / idx
                 elif key == "n_correct":
-                    log_metrics[key] = val
-                    log_metrics["accuracy"] = val / epoch_metrics["n_samples"]
+                    log_metrics[key] = epoch_metrics[key]
+                    log_metrics["accuracy"] = val / bs
+                    log_metrics["epoch_accuracy"] = log_metrics[key] / epoch_metrics["n_samples"]
+                    epoch_metrics["accuracy"] = log_metrics["epoch_accuracy"]
                 else:
-                    log_metrics[key] = val
-
+                    log_metrics[key] = epoch_metrics[key]
+            
             if tag == "train":
                 loss /= self.update_freq
                 loss.backward()
-                if idx % self.update_freq == 0:
+                log_metrics["lr"] = self.optimizer.get_current_lr()
+                if idx % self.update_freq == 0 or idx == len_dl:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.model.zero_grad()
-            self.tb_log(log_metrics, epoch, tag, num_batches + idx, pr)
-            if self.device == "cuda":
-                torch.cuda.empty_cache()
+                    if self.device == "cuda":
+                        torch.cuda.empty_cache()
+            else:
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+            del logits
+            self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
+        epoch_metrics["loss"] = log_metrics["epoch_loss"]
         return epoch_metrics
 
     def save_model(self, path=None):

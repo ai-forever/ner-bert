@@ -223,6 +223,6 @@ class TransformersDataset(torch.utils.data.Dataset):
                 key: samples["net_input"][key].cuda() for key in samples["net_input"]}
             samples["target"] = {key: samples["target"][key].cuda() for key in samples["target"]}
 
-        samples["n_sentences"] = len(samples)
+        samples["n_samples"] = len(samples)
         samples["n_tokens"] = sum(samples["size"])
         return samples

@@ -107,9 +107,12 @@ class BertAdam(Optimizer):
 
     def update_lr(self):
         if 0 < self.t_total:
-            lr_this_step = self.defaults["lr"] * warmup_linear(self.global_step / self.t_total, self.defaults["warmup"])
+            lr_this_step = self.get_current_lr()
             for param_group in self.param_groups:
                 param_group['lr'] = lr_this_step
+
+    def get_current_lr(self):
+        return self.defaults["lr"] * warmup_linear(self.global_step / self.t_total, self.defaults["warmup"])
 
     def step(self, closure=None):
         """Performs a single optimization step.

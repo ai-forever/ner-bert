@@ -25,8 +25,8 @@ class TensorboardLog(object):
         for key in stats.keys():
             writer.add_scalar(key, stats[key], step)
             values.append(np.round(stats[key], 3))
-            keys.append(key + "{} |")
-        pr.set_description("epoch {} | {} | ".format(epoch, " ".join(keys).format(*values)))
+            keys.append(key + " {} |")
+        pr.set_description("{} | epoch {} | {} ".format(tag, epoch, " ".join(keys).format(*values)))
 
     def __exit__(self, *exc):
         for writer in getattr(self, '_writers', {}).values():

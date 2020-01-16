@@ -23,7 +23,7 @@ class GeneralCriterion(object):
             y_pred = y_pred["cls"].argmax(-1).cpu().numpy()
             y_true = y_true["cls"].cpu().numpy()
             return {
-                "n_correct": y_pred == y_true,
+                "n_correct": sum(y_pred == y_true),
                 "n_samples": len(y_true)
             }
         raise NotImplemented("Only classification task is implemented.")
