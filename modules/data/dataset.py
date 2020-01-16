@@ -17,7 +17,7 @@ def default_collate(batch):
     return torch.LongTensor(batch)
 
 
-class TransformersDataset(torch.utils.data.dataset):
+class TransformersDataset(torch.utils.data.Dataset):
     """
     A dataset that provides helpers for batching of documents
     with models from transformers for classification task.

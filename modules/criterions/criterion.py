@@ -4,13 +4,13 @@ from torch.nn import CrossEntropyLoss
 class GeneralCriterion(object):
 
     @classmethod
-    def create(cls, ignore_index=-100, task_type="cls"):
+    def create(cls, ignore_index=-100, model_type="cls"):
         loss = CrossEntropyLoss(ignore_index=ignore_index)
-        return cls(loss, task_type)
+        return cls(loss, model_type)
 
-    def __init__(self, loss, task_type):
+    def __init__(self, loss, model_type):
         self.loss = loss
-        self.task_type = task_type
+        self.model_type = model_type
 
     def __call__(self, y_pred, y_true):
         loss = sum([self.loss(y_pred[key], y_true[key]) for key in y_true])
@@ -19,7 +19,7 @@ class GeneralCriterion(object):
         return loss, res
 
     def metrics(self, y_pred, y_true):
-        if self.task_type == "cls":
+        if self.model_type == "cls":
             y_pred = y_pred["cls"].argmax(-1).cpu().numpy()
             y_true = y_true["cls"].cpu().numpy()
             return {
