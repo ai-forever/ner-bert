@@ -19,7 +19,7 @@ class Learner(object):
             cls,
             tensorboard_dir,
             # Model args
-            model_name, model_type,
+            model_name, model_type, tokenizer_name=None,
             # Criterion
             ignore_index=-100,
             #  Data args
@@ -33,8 +33,9 @@ class Learner(object):
             epochs=10, save_every=1, update_freq=1, device="cuda", target_metric="accuracy",
             checkpoint_dir="checkpoints"
     ):
+        tokenizer_name = if_none(tokenizer_name, model_name)
         data_args = {
-            "model_name": model_name,
+            "model_name": tokenizer_name,
             "train_df_path": train_df_path,
             "valid_df_path": valid_df_path,
             "test_df_path": test_df_path,
@@ -148,7 +149,8 @@ class Learner(object):
         metrics = {}
         for split in self.splits:
             if self.data.dataloaders.get(split) is not None:
-                metrics[split] = self.validate_step(self.data.dataloaders[split], self.epochs, split, num_batches, False)
+                metrics[split] = self.validate_step(
+                    self.data.dataloaders[split], self.epochs, split, num_batches, False)
         for split, epoch_metrics in metrics.items():
             if epoch_metrics.get(self.target_metric) is not None:
                 log_metric = {
@@ -165,7 +167,6 @@ class Learner(object):
         epoch_metrics = {}
         len_dl = len(dl)
         pr = tqdm(dl, total=len_dl, leave=False, desc=tag)
-        idx = 1
         for idx, batch in enumerate(pr, 1):
             logits = self.model(batch)
             y_true = batch["target"]
