@@ -184,7 +184,7 @@ class Learner(object):
 
         for key, val in metrics.items():
             if key == "loss":
-                epoch_metrics["loss"] /= len_dl
+                epoch_metrics["epoch_loss"] /= len_dl
             elif key == "n_correct":
                 epoch_metrics["epoch_accuracy"] = epoch_metrics["n_correct"] / epoch_metrics["n_samples"]
         if is_log:
