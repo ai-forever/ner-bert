@@ -166,7 +166,7 @@ class TransformersDataset(torch.utils.data.Dataset):
                 if os.path.exists(dictionaries_path):
                     dictionaries = load_pkl(dictionaries_path)
             cached_name = get_hash(args)
-            cached_path = os.path.join(cache_dir, "{}_{}.pkl".format(df_path, cached_name))
+            cached_path = os.path.join(cache_dir, "{}_{}.pkl".format(os.path.split(df_path)[-1], cached_name))
             if df_path is not None and (clear_cache or not os.path.exists(cached_path)):
                 logger.info("Creating dataset from path {}...".format(df_path))
                 features, dictionaries = cls.build_features(tokenizer, df_path, dictionaries, markup, max_tokens)

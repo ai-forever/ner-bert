@@ -115,46 +115,100 @@ class Learner(object):
         self.last_model_path = os.path.join(self.checkpoint_dir, self._last_model_name)
         self.best_model_path = os.path.join(self.checkpoint_dir, self._best_model_name)
         self.history = defaultdict(list)
+        self._saved_best = False
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
+        self._final_metric_prefix = "final_{}"
 
-    def learn(self):
+    def learn(self, is_final_validate=True):
         best_metric = 0
+        num_batches = None
         for epoch in range(self.epochs):
             epoch += 1
+            num_batches = None
             for split in self.splits:
                 if self.data.dataloaders.get(split) is not None:
-                    epoch_metrics = self.step(self.data.dataloaders[split], epoch, split)
                     if split == "train" and epoch % self.save_every == 0:
+                        epoch_metrics = self.train_step(self.data.dataloaders[split], epoch, split)
                         self.save_model(self.last_model_path)
+                        num_batches = epoch_metrics["num_batches"]
+                    else:
+                        epoch_metrics = self.validate_step(self.data.dataloaders[split], epoch, split, num_batches)
                     if split == "valid" and best_metric < epoch_metrics.get(self.target_metric, 0):
+                        self._saved_best = True
                         self.save_model(self.best_model_path)
                     self.history[split].append(epoch_metrics)
                     save_pkl(self.history, self.history_path)
+        if is_final_validate:
+            if self._saved_best:
+                self.load_model()
+            return self.validate(if_none(num_batches, num_batches + 1))
 
-    def step(self, dl, epoch, tag):
-        if tag == "train":
-            self.model.train()
-        else:
-            self.model.eval()
+    def validate(self, num_batches=None):
+        metrics = {}
+        num_batches = if_none(num_batches, self.epochs * self.data.dataloaders.get("train", None))
+        for split in self.splits:
+            if self.data.dataloaders.get(split) is not None:
+                metrics[split] = self.validate_step(self.data.dataloaders[split], self.epochs, split, num_batches)
+        for split, epoch_metrics in metrics.items():
+            if epoch_metrics.get(self.target_metric) is not None:
+                log_metric = {
+                    self._final_metric_prefix.format(self.target_metric): epoch_metrics.get(self.target_metric)
+                }
+                self.tb_log.log(log_metric, self.epochs, split, num_batches)
+        return metrics
+
+    def validate_step(self, dl, epoch, tag, num_batches=None):
+        self.model.eval()
+        self.optimizer.zero_grad()
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
+        epoch_metrics = {}
+        len_dl = len(dl)
+        pr = tqdm(dl, total=len_dl, leave=False, desc=tag)
+        num_batches = if_none(num_batches, (epoch - 1) * len_dl)
+        idx = 1
+        for idx, batch in enumerate(pr, 1):
+            logits = self.model(batch)
+            y_true = batch["target"]
+            with torch.no_grad():
+                loss, metrics = self.criterion(logits, y_true)
+            for key, val in metrics.items():
+                if key not in epoch_metrics:
+                    epoch_metrics[key] = 0
+                epoch_metrics[key] += val
+
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+            del logits
+
+        for key, val in metrics.items():
+            if key == "loss":
+                epoch_metrics["loss"] /= len_dl
+            elif key == "n_correct":
+                epoch_metrics["accuracy"] = epoch_metrics["n_correct"] / epoch_metrics["n_samples"]
+
+        self.tb_log.log(epoch_metrics, epoch, tag, num_batches + idx, pr)
+        return epoch_metrics
+
+    def train_step(self, dl, epoch, tag, num_batches=None):
+        self.model.train()
         self.optimizer.zero_grad()
         if self.device == "cuda":
             torch.cuda.empty_cache()
         epoch_metrics = {"n_samples": 0}
         len_dl = len(dl)
-        pr = tqdm(dl, total=len_dl, leave=False)
-        num_batches = (epoch - 1) * len_dl
+        pr = tqdm(dl, total=len_dl, leave=False, desc=tag)
+        num_batches = if_none(num_batches, (epoch - 1) * len_dl)
         log_metrics = {}
+        idx = 1
         for idx, batch in enumerate(pr, 1):
             logits = self.model(batch)
             y_true = batch["target"]
-            if tag == "train":
-                loss, metrics = self.criterion(logits, y_true)
-            else:
-                with torch.no_grad():
-                    loss, metrics = self.criterion(logits, y_true)
-            bs = metrics.pop("n_samples", 4)
+            loss, metrics = self.criterion(logits, y_true)
+            bs = metrics.pop("n_samples")
             epoch_metrics["n_samples"] += bs
+
             for key, val in metrics.items():
                 if key not in epoch_metrics:
                     epoch_metrics[key] = 0
@@ -169,23 +223,22 @@ class Learner(object):
                     epoch_metrics["accuracy"] = log_metrics["epoch_accuracy"]
                 else:
                     log_metrics[key] = epoch_metrics[key]
-            
-            if tag == "train":
-                loss /= self.update_freq
-                loss.backward()
-                log_metrics["lr"] = self.optimizer.get_current_lr()
-                if idx % self.update_freq == 0 or idx == len_dl:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-                    self.model.zero_grad()
-                    if self.device == "cuda":
-                        torch.cuda.empty_cache()
-            else:
+
+            loss /= self.update_freq
+            loss.backward()
+            log_metrics["lr"] = self.optimizer.get_current_lr()
+            if idx % self.update_freq == 0 or idx == len_dl:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.model.zero_grad()
                 if self.device == "cuda":
                     torch.cuda.empty_cache()
+                self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
+
             del logits
-            self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
         epoch_metrics["loss"] = log_metrics["epoch_loss"]
+        epoch_metrics["num_batches"] = num_batches
+        self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
         return epoch_metrics
 
     def save_model(self, path=None):
