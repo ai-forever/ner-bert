@@ -122,16 +122,16 @@ class Learner(object):
 
     def learn(self, is_final_validate=True):
         best_metric = 0
-        num_batches = None
+        num_batches = len(self.data.dataloaders["train"])
         for epoch in range(self.epochs):
             epoch += 1
-            num_batches = None
+            num_batches *= epoch
             for split in self.splits:
                 if self.data.dataloaders.get(split) is not None:
-                    if split == "train" and epoch % self.save_every == 0:
+                    if split == "train":
                         epoch_metrics = self.train_step(self.data.dataloaders[split], epoch, split)
-                        self.save_model(self.last_model_path)
-                        num_batches = epoch_metrics["num_batches"]
+                        if epoch % self.save_every == 0:
+                            self.save_model(self.last_model_path)
                     else:
                         epoch_metrics = self.validate_step(self.data.dataloaders[split], epoch, split, num_batches)
                     if split == "valid" and best_metric < epoch_metrics.get(self.target_metric, 0):
@@ -146,10 +146,9 @@ class Learner(object):
 
     def validate(self, num_batches=None):
         metrics = {}
-        num_batches = if_none(num_batches, self.epochs * self.data.dataloaders.get("train", None))
         for split in self.splits:
             if self.data.dataloaders.get(split) is not None:
-                metrics[split] = self.validate_step(self.data.dataloaders[split], self.epochs, split, num_batches)
+                metrics[split] = self.validate_step(self.data.dataloaders[split], self.epochs, split, num_batches, False)
         for split, epoch_metrics in metrics.items():
             if epoch_metrics.get(self.target_metric) is not None:
                 log_metric = {
@@ -158,7 +157,7 @@ class Learner(object):
                 self.tb_log.log(log_metric, self.epochs, split, num_batches)
         return metrics
 
-    def validate_step(self, dl, epoch, tag, num_batches=None):
+    def validate_step(self, dl, epoch, tag, num_batches=None, is_log=True):
         self.model.eval()
         self.optimizer.zero_grad()
         if self.device == "cuda":
@@ -166,7 +165,6 @@ class Learner(object):
         epoch_metrics = {}
         len_dl = len(dl)
         pr = tqdm(dl, total=len_dl, leave=False, desc=tag)
-        num_batches = if_none(num_batches, (epoch - 1) * len_dl)
         idx = 1
         for idx, batch in enumerate(pr, 1):
             logits = self.model(batch)
@@ -186,9 +184,9 @@ class Learner(object):
             if key == "loss":
                 epoch_metrics["loss"] /= len_dl
             elif key == "n_correct":
-                epoch_metrics["accuracy"] = epoch_metrics["n_correct"] / epoch_metrics["n_samples"]
-
-        self.tb_log.log(epoch_metrics, epoch, tag, num_batches + idx, pr)
+                epoch_metrics["epoch_accuracy"] = epoch_metrics["n_correct"] / epoch_metrics["n_samples"]
+        if is_log:
+            self.tb_log.log(epoch_metrics, epoch, tag, num_batches, pr)
         return epoch_metrics
 
     def train_step(self, dl, epoch, tag, num_batches=None):
