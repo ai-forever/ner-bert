@@ -123,10 +123,11 @@ class Learner(object):
 
     def learn(self, is_final_validate=True):
         best_metric = 0
-        num_batches = len(self.data.dataloaders["train"])
+        len_dl = len(self.data.dataloaders["train"])
+        num_batches = len_dl
         for epoch in range(self.epochs):
             epoch += 1
-            num_batches *= epoch
+            num_batches = epoch * len_dl
             for split in self.splits:
                 if self.data.dataloaders.get(split) is not None:
                     if split == "train":
