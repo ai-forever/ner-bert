@@ -18,8 +18,8 @@ MODEL_TYPES = {
 class GeneralModel(Module):
 
     @classmethod
-    def create(cls, model_name, model_type):
-        model = MODEL_TYPES[model_type].from_pretrained(model_name)
+    def create(cls, model_name, model_type, **model_args):
+        model = MODEL_TYPES[model_type].from_pretrained(model_name, **model_args)
         return cls(model, model_type)
 
     def __init__(self, model, model_type):

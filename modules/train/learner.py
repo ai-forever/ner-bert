@@ -19,7 +19,7 @@ class Learner(object):
             cls,
             tensorboard_dir,
             # Model args
-            model_name, model_type, tokenizer_name=None,
+            model_name, model_type, model_args=None, tokenizer_name=None,
             # Criterion
             ignore_index=-100,
             #  Data args
@@ -34,6 +34,11 @@ class Learner(object):
             checkpoint_dir="checkpoints"
     ):
         tokenizer_name = if_none(tokenizer_name, model_name)
+        model_args = if_none(model_args, {})
+        args = locals()
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+        save_pkl(args, os.path.join(checkpoint_dir, "args.pkl"))
         data_args = {
             "model_name": tokenizer_name,
             "train_df_path": train_df_path,
@@ -85,7 +90,7 @@ class Learner(object):
         model = GeneralModel.create(**model_args)
         if device == "cuda":
             model = model.cuda()
-        optimizer_args["t_total"] = if_none(optimizer_args["t_total"], epochs * len(data.dataloaders["train"]))
+        optimizer_args["t_total"] = if_none(optimizer_args["t_total"], epochs * len(data.dataloaders["train"]) / update_freq)
         optimizer = Optimizer(model=model, **optimizer_args)
         criterion = GeneralCriterion.create(**criterion_args)
         tb_log = TensorboardLog(tensorboard_dir)
@@ -117,8 +122,6 @@ class Learner(object):
         self.best_model_path = os.path.join(self.checkpoint_dir, self._best_model_name)
         self.history = defaultdict(list)
         self._saved_best = False
-        if not os.path.exists(checkpoint_dir):
-            os.makedirs(checkpoint_dir)
         self._final_metric_prefix = "final_{}"
 
     def learn(self, is_final_validate=True):
@@ -177,14 +180,14 @@ class Learner(object):
                 if key not in epoch_metrics:
                     epoch_metrics[key] = 0
                 epoch_metrics[key] += val
-
+            del logits
             if self.device == "cuda":
                 torch.cuda.empty_cache()
-            del logits
+            
 
         for key, val in metrics.items():
             if key == "loss":
-                epoch_metrics["epoch_loss"] /= len_dl
+                epoch_metrics["epoch_loss"] = epoch_metrics["loss"] / len_dl
             elif key == "n_correct":
                 epoch_metrics["epoch_accuracy"] = epoch_metrics["n_correct"] / epoch_metrics["n_samples"]
         if is_log:
@@ -206,6 +209,7 @@ class Learner(object):
             logits = self.model(batch)
             y_true = batch["target"]
             loss, metrics = self.criterion(logits, y_true)
+            del logits
             bs = metrics.pop("n_samples")
             epoch_metrics["n_samples"] += bs
 
@@ -234,8 +238,14 @@ class Learner(object):
                 if self.device == "cuda":
                     torch.cuda.empty_cache()
                 self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
-
-            del logits
+        del loss
+        if idx % self.update_freq != 0:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.model.zero_grad()
+                self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
         epoch_metrics["loss"] = log_metrics["epoch_loss"]
         epoch_metrics["num_batches"] = num_batches
         self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
