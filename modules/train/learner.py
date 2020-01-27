@@ -57,10 +57,10 @@ class Learner(object):
             "markup": markup,
             "batch_size": batch_size
         }
-        model_args = {
+        model_args.update({
             "model_name": model_name,
-            "model_type": model_type
-        }
+            "model_type": model_type,
+        })
         optimizer_args = {
             "lr": lr,
             "warmup": warmup,
@@ -74,8 +74,9 @@ class Learner(object):
         }
         criterion_args = {
             "ignore_index": ignore_index,
-            "model_type": model_type
+            "model_type": model_type,
         }
+        
         return cls._create(
             tensorboard_dir, data_args, model_args, optimizer_args, criterion_args,
             epochs=epochs, save_every=save_every, update_freq=update_freq, device=device,
@@ -87,6 +88,8 @@ class Learner(object):
                 epochs=10, save_every=1, update_freq=1, device="cuda", target_metric="accuracy",
                 checkpoint_dir="checkpoints"):
         data = TransformerData.create(**data_args)
+        # We provide only classification
+        model_args["num_labels"] = len(list(data.datasets["train"].dictionaries.values())[0])  
         model = GeneralModel.create(**model_args)
         if device == "cuda":
             model = model.cuda()

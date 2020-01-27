@@ -126,8 +126,11 @@ class TransformersDataset(torch.utils.data.Dataset):
         dictionaries = if_none(dictionaries, {})
         unchanged = False
         for idx, row in tqdm(df.iterrows(), leave=False, total=len(df)):
-            res, changed, dictionaries = cls.build_feature(tokenizer, row, dictionaries, markup, max_tokens)
-            features.append(res)
+            try:
+                res, changed, dictionaries = cls.build_feature(tokenizer, row, dictionaries, markup, max_tokens)
+                features.append(res)
+            except ValueError:
+                logger.warning("Bad input format, skip row...")
         if not is_changing and unchanged:
             logger.warning("You specify dictionaries, that is not contain all labels from dataset. We update that.")
         return features, dictionaries
