@@ -93,7 +93,8 @@ class Learner(object):
         model = GeneralModel.create(**model_args)
         if device == "cuda":
             model = model.cuda()
-        optimizer_args["t_total"] = if_none(optimizer_args["t_total"], epochs * len(data.dataloaders["train"]) / update_freq)
+        optimizer_args["t_total"] = if_none(optimizer_args["t_total"],
+                                            epochs * len(data.dataloaders["train"]) / update_freq)
         optimizer = Optimizer(model=model, **optimizer_args)
         criterion = GeneralCriterion.create(**criterion_args)
         tb_log = TensorboardLog(tensorboard_dir)
@@ -186,7 +187,6 @@ class Learner(object):
             del logits
             if self.device == "cuda":
                 torch.cuda.empty_cache()
-            
 
         for key, val in metrics.items():
             if key == "loss":
@@ -243,10 +243,10 @@ class Learner(object):
                 self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
         del loss
         if idx % self.update_freq != 0:
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.model.zero_grad()
-                self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            self.model.zero_grad()
+            self.tb_log.log(log_metrics, epoch, tag, num_batches + idx, pr)
         if self.device == "cuda":
             torch.cuda.empty_cache()
         epoch_metrics["loss"] = log_metrics["epoch_loss"]
@@ -255,9 +255,31 @@ class Learner(object):
         return epoch_metrics
 
     def save_model(self, path=None):
-        path = path if path else os.path.join(self.checkpoint_dir, self.best_model_path)
+        path = path if path else self.last_model_path
         torch.save(self.model.state_dict(), path)
 
     def load_model(self, path=None):
-        path = path if path else os.path.join(self.checkpoint_dir, self.best_model_path)
+        path = path if path else self.last_model_path
         self.model.load_state_dict(torch.load(path))
+
+    def predict_from_dl(self, dl=None):
+        self.model.eval()
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
+        len_dl = len(dl)
+        pr = tqdm(dl, total=len_dl, leave=False, desc="predict")
+        res = []
+        for idx, batch in enumerate(pr, 1):
+            logits = self.model(batch)
+            pred = list(logits.argmax(-1).cpu().numpy())
+            del logits
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+            res.extend(pred)
+
+        return res
+
+    def predict(self, lst=None, dl=None, df_path=None, df=None):
+        if dl is None:
+            dl = self.data.build_dataloader(df=df, lst=lst, df_path=df_path)
+        return self.predict_from_dl(dl)

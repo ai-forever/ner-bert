@@ -57,7 +57,7 @@ class TransformersDataset(torch.utils.data.Dataset):
             cur_tokens = tokenizer.tokenize(orig_token)
             tok_map.append(len(transformer_tokens))
             transformer_tokens.extend(cur_tokens)
-            if hasattr(row, "ner"):
+            if origin_targets is not None:
                 orig_target = origin_targets[idx]
                 if markup == "BIO":
                     prefix = "B_"
@@ -110,6 +110,7 @@ class TransformersDataset(torch.utils.data.Dataset):
                 dictionaries["cls"][row.cls] = len(dictionaries["cls"])
             target["cls"] = dictionaries["cls"][row.cls]
             target_meta["cls"] = row.cls
+
         res = {
             "target": target,
             "net_input": tokenized,
@@ -118,9 +119,13 @@ class TransformersDataset(torch.utils.data.Dataset):
         }
         return res, changed, dictionaries
 
+    @staticmethod
+    def read_csv(path):
+        return pd.read_csv(path, sep="\t")
+
     @classmethod
-    def build_features(cls, tokenizer, data_path, dictionaries=None, markup="IO", max_tokens=512):
-        df = pd.read_csv(data_path, sep="\t")
+    def build_features(cls, tokenizer, data_path=None, dictionaries=None, markup="IO", max_tokens=512, df=None):
+        df = if_none(df, cls.read_csv(data_path))
         features = []
         is_changing = dictionaries is None
         dictionaries = if_none(dictionaries, {})
@@ -185,6 +190,16 @@ class TransformersDataset(torch.utils.data.Dataset):
 
         self = cls(tokenizer, dictionaries, args, features)
         return self
+
+    def build_online_dataset(self, df):
+        features, dictionaries = self.build_features(
+            tokenizer=self.tokenizer,
+            dictionaries=self.dictionaries,
+            markup=self.args["markup"],
+            max_tokens=self.args["max_tokens"],
+            df=df
+        )
+        return self.__class__(self.tokenizer, dictionaries, self.args, features)
 
     def __init__(self, tokenizer, dictionaries, args, features=None):
         super(TransformersDataset, self).__init__()

@@ -1,6 +1,8 @@
 from transformers import tokenization_auto
 from .dataset import TransformersDataset
 from torch.utils.data import DataLoader
+import pandas as pd
+from modules.utils import if_none
 
 
 class TransformerData(object):
@@ -96,9 +98,20 @@ class TransformerData(object):
             "valid": valid_dl,
             "test": test_dl
         }
-        return cls(datasets, dataloaders, dictionaries)
+        return cls(datasets, dataloaders, dictionaries, batch_size)
 
-    def __init__(self, datasets, dataloaders, dictionaries):
+    def __init__(self, datasets, dataloaders, dictionaries, batch_size):
         self.datasets = datasets
         self.dataloaders = dataloaders
         self.dictionaries = dictionaries
+        self.batch_size = batch_size
+
+    def build_dataloader(self, df=None, lst=None, df_path=None):
+        if df is None and lst is None:
+            df = self.datasets["train"].read_csv(df_path)
+        else:
+            df = if_none(df, pd.DataFrame({"text": lst}))
+        ds = self.datasets["train"].build_online_dataset(df)
+        return DataLoader(
+            ds, batch_size=self.batch_size, shuffle=False, collate_fn=ds.collater
+        )
