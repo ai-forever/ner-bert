@@ -3,6 +3,7 @@ from .dataset import TransformersDataset
 from torch.utils.data import DataLoader
 import pandas as pd
 from modules.utils import if_none
+from collections import defaultdict
 
 
 class TransformerData(object):
@@ -104,13 +105,28 @@ class TransformerData(object):
         self.datasets = datasets
         self.dataloaders = dataloaders
         self.dictionaries = dictionaries
+        self.idictionaries = dict()
+        for key in dictionaries:
+            self.idictionaries[key] = [""] * len(dictionaries[key])
+            for k, v in dictionaries[key].items():
+                self.idictionaries[key][v] = k
         self.batch_size = batch_size
 
+    def decode(self, preds):
+        res = defaultdict(list)
+        for key in preds:
+            for pred in preds[key]:
+                if key == "cls":
+                    res[key].append(self.idictionaries[key][pred])
+                elif key == "ner":
+                    res[key].append([self.idictionaries[key][p] for p in pred])
+        return res
+    
     def build_dataloader(self, df=None, lst=None, df_path=None):
         if df is None and lst is None:
             df = self.datasets["train"].read_csv(df_path)
-        else:
-            df = if_none(df, pd.DataFrame({"text": lst}))
+        elif df is None:
+            df = pd.DataFrame({"text": lst})
         ds = self.datasets["train"].build_online_dataset(df)
         return DataLoader(
             ds, batch_size=self.batch_size, shuffle=False, collate_fn=ds.collater

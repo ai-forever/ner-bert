@@ -10,6 +10,7 @@ import os
 from collections import defaultdict
 from modules.data.utils import save_pkl
 from transformers import tokenization_auto
+from collections import defaultdict
 
 
 class Learner(object):
@@ -93,8 +94,9 @@ class Learner(object):
         model = GeneralModel.create(**model_args)
         if device == "cuda":
             model = model.cuda()
+        len_dl = 0 if data.dataloaders["train"] is None else len(data.dataloaders["train"])
         optimizer_args["t_total"] = if_none(optimizer_args["t_total"],
-                                            epochs * len(data.dataloaders["train"]) / update_freq)
+                                            epochs * len_dl / update_freq)
         optimizer = Optimizer(model=model, **optimizer_args)
         criterion = GeneralCriterion.create(**criterion_args)
         tb_log = TensorboardLog(tensorboard_dir)
@@ -262,24 +264,30 @@ class Learner(object):
         path = path if path else self.last_model_path
         self.model.load_state_dict(torch.load(path))
 
-    def predict_from_dl(self, dl=None):
+    def predict_from_dl(self, dl, return_logits=True):
         self.model.eval()
         if self.device == "cuda":
             torch.cuda.empty_cache()
         len_dl = len(dl)
         pr = tqdm(dl, total=len_dl, leave=False, desc="predict")
-        res = []
+        res = defaultdict(list)
+        logits_res = defaultdict(list)
         for idx, batch in enumerate(pr, 1):
             logits = self.model(batch)
-            pred = list(logits.argmax(-1).cpu().numpy())
+            for key in logits:
+                pred = list(logits[key].argmax(-1).cpu().numpy())
+                res[key].extend(pred)
+                logits_res[key].extend(logits.cpu().numpy())
             del logits
             if self.device == "cuda":
                 torch.cuda.empty_cache()
-            res.extend(pred)
 
+        res = self.data.decode(res)
+        if return_logits:
+            return res, logits_res
         return res
 
-    def predict(self, lst=None, dl=None, df_path=None, df=None):
+    def predict(self, lst=None, dl=None, df_path=None, df=None, return_logits=True):
         if dl is None:
             dl = self.data.build_dataloader(df=df, lst=lst, df_path=df_path)
-        return self.predict_from_dl(dl)
+        return self.predict_from_dl(dl, return_logits)

@@ -125,7 +125,8 @@ class TransformersDataset(torch.utils.data.Dataset):
 
     @classmethod
     def build_features(cls, tokenizer, data_path=None, dictionaries=None, markup="IO", max_tokens=512, df=None):
-        df = if_none(df, cls.read_csv(data_path))
+        if df is None:
+            df = cls.read_csv(data_path)
         features = []
         is_changing = dictionaries is None
         dictionaries = if_none(dictionaries, {})
