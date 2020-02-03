@@ -4,8 +4,8 @@ from collections import OrderedDict
 
 
 def chunk_finder(current_token, previous_token, tag):
-    current_tag = current_token.split('-', 1)[-1]
-    previous_tag = previous_token.split('-', 1)[-1]
+    current_tag = current_token.split('_', 1)[-1]
+    previous_tag = previous_token.split('_', 1)[-1]
     if previous_tag != tag:
         previous_tag = 'O'
     if current_tag != tag:
@@ -18,8 +18,8 @@ def chunk_finder(current_token, previous_token, tag):
     else:
         create_chunk = False
 
-    if (previous_token == 'I-' + tag and current_token == 'B_' + tag) or \
-            (previous_token == 'B-' + tag and current_token == 'B_' + tag) or \
+    if (previous_token == 'I_' + tag and current_token == 'B_' + tag) or \
+            (previous_token == 'B_' + tag and current_token == 'B_' + tag) or \
             (current_tag == 'O' and previous_token == 'I_' + tag) or \
             (current_tag == 'O' and previous_token == 'B_' + tag):
         pop_out = True
